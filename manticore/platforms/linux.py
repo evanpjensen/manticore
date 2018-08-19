@@ -1539,7 +1539,6 @@ class Linux(Platform):
         return 0
 
     def sys_tgkill(self, tgid, tid, sig):
-        return 0
         logger.debug("TGKILL, Ignoring Sending signal %d to tid %d in tgid %d", sig, tid, tgid)
         return 0
 
