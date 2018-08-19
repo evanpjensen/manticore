@@ -1538,6 +1538,11 @@ class Linux(Platform):
         logger.debug("KILL, Ignoring Sending signal %d to pid %d", sig, pid)
         return 0
 
+    def sys_tgkill(self, tgid, tid, sig):
+        return 0
+        logger.debug("TGKILL, Ignoring Sending signal %d to tid %d in tgid %d", sig, tid, tgid)
+        return 0
+
     def sys_rt_sigaction(self, signum, act, oldact):
         """Wrapper for sys_sigaction"""
         return self.sys_sigaction(signum, act, oldact)
