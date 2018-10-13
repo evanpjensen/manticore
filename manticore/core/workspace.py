@@ -9,11 +9,16 @@ import io
 from contextlib import contextmanager
 from multiprocessing.managers import SyncManager
 
+from manticore.utils import config
 from manticore.utils.helpers import PickleSerializer
 from .smtlib import solver
 from .state import State
 
 logger = logging.getLogger(__name__)
+
+consts = config.get_group('workspace')
+consts.add('prefix', default='mcore_', description="The prefix to use for output and workspace directories")
+consts.add('dir', default='.', description="Location of where to create workspace directories")
 
 _manager = None
 
@@ -168,7 +173,7 @@ class FilesystemStore(Store):
         :param uri: The path to on-disk workspace, or None.
         """
         if not uri:
-            uri = os.path.abspath(tempfile.mkdtemp(prefix="mcore_", dir='./'))
+            uri = os.path.abspath(tempfile.mkdtemp(prefix=consts.prefix, dir=consts.dir))
 
         if os.path.exists(uri):
             assert os.path.isdir(uri), 'Store must be a directory'
@@ -224,7 +229,7 @@ class MemoryStore(Store):
     """
     An in-memory (dict) Manticore workspace.
 
-    NOTE: This is mostly used for experimentation and testing funcionality.
+    NOTE: This is mostly used for experimentation and testing functionality.
     Can not be used with multiple workers!
     """
     store_type = 'mem'
@@ -364,7 +369,7 @@ class Workspace(object):
         Save a state to storage, return identifier.
 
         :param state: The state to save
-        :param int state_id: If not None force the state id potentially overwritting old states
+        :param int state_id: If not None force the state id potentially overwriting old states
         :return: New state id
         :rtype: int
         """

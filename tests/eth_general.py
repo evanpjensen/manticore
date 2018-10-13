@@ -1,4 +1,4 @@
-
+import binascii
 import shutil
 import struct
 import tempfile
@@ -6,16 +6,19 @@ import unittest
 import os
 import sys
 import resource
+import re
 
 from manticore.platforms import evm
 from manticore.core.plugin import Plugin
 from manticore.core.smtlib import ConstraintSet, operators
 from manticore.core.smtlib.expression import BitVec
 from manticore.core.smtlib import solver
-from manticore.core.state import State
+from manticore.core.state import State, TerminateState
 from manticore.ethereum import ManticoreEVM, DetectIntegerOverflow, Detector, NoAliveStates, ABI, EthereumError
 from manticore.platforms.evm import EVMWorld, ConcretizeStack, concretized_args, Return, Stop
 from manticore.core.smtlib.visitors import pretty_print, translate_to_smtlib, simplify, to_constant
+import pyevmasm as EVMAsm
+
 
 import shutil
 
@@ -45,44 +48,32 @@ class EthDetectorsIntegrationTest(unittest.TestCase):
         self.assertIn('Unsigned integer overflow at MUL instruction', all_findings)
 
 
-class EthDetectorsTest(unittest.TestCase):
-    def setUp(self):
-        self.io = DetectIntegerOverflow()
-        self.state = make_mock_evm_state()
-
-    def test_mul_no_overflow(self):
-        """
-        Regression test added for issue 714, where we were using the ADD ovf check for MUL
-        """
-        arguments = [1 << 248, self.state.new_symbolic_value(256)]
-        self.state.constrain(operators.ULT(arguments[1], 256))
-
-        cond = self.io._unsigned_mul_overflow(self.state, *arguments)
-        check = self.state.can_be_true(cond)
-        self.assertFalse(check)
-
-    def test_mul_overflow0(self):
-        arguments = [1 << 249, self.state.new_symbolic_value(256)]
-        self.state.constrain(operators.ULT(arguments[1], 256))
-
-        cond = self.io._unsigned_mul_overflow(self.state, *arguments)
-        check = self.state.can_be_true(cond)
-        self.assertTrue(check)
-
-    def test_mul_overflow1(self):
-        arguments = [1 << 255, self.state.new_symbolic_value(256)]
-
-        cond = self.io._unsigned_mul_overflow(self.state, *arguments)
-        check = self.state.can_be_true(cond)
-        self.assertTrue(check)
-
-
 class EthAbiTests(unittest.TestCase):
     _multiprocess_can_split = True
 
     @staticmethod
     def _pack_int_to_32(x):
         return b'\x00' * 28 + struct.pack('>I', x)
+
+    def test_parse_tx(self):
+        m = ManticoreEVM()
+        source_code = '''
+        contract C{
+            mapping(address => uint) balances;
+            function test1(address to, uint val){
+                balances[to] = val;
+            }
+        }
+        '''
+        user_account = m.create_account(balance=1000, name='user_account')
+        contract_account = m.solidity_create_contract(source_code, owner=user_account, name='contract_account')
+
+
+        calldata = binascii.unhexlify(b'9de4886f9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d')
+        returndata = b'' 
+        md = m.get_metadata(contract_account)
+        self.assertEqual(md.parse_tx(calldata, returndata), 'test1(899826498278242188854817720535123270925417291165, 71291600040229971300002528024956868756719167029433602173313100742126907268509)')
+
 
     def test_dyn_address(self):
         d = [
@@ -413,6 +404,96 @@ class EthTests(unittest.TestCase):
         self.mevm=None
         shutil.rmtree(self.worksp)
 
+    def test_invalid_function_signature(self):
+        source_code = '''
+        contract Test{
+
+            function ret(uint256) returns(uint256){
+                return 1;
+            }
+
+        }
+        '''
+        user_account = self.mevm.create_account(balance=1000)
+        contract_account = self.mevm.solidity_create_contract(source_code, owner=user_account)
+        with self.assertRaises(EthereumError) as ctx:
+            contract_account.ret(self.mevm.make_symbolic_value(), signature='(uint8)')
+        self.assertTrue(str(ctx.exception))
+
+    def test_selfdestruct_decoupled_account_delete(self):
+        source_code = '''
+            contract C{
+                function d( ){
+                    selfdestruct(0);
+                }
+                function g() returns(uint) {
+                    return 42 ;
+                }
+            }
+
+            contract D{
+                C c;
+                constructor () {
+                    c = new C();
+                }
+                function t () returns(uint){
+                    c.d();
+                    return c.g();
+                }
+            }
+        '''
+        user_account = self.mevm.create_account(balance=1000)
+        contract_account = self.mevm.solidity_create_contract(source_code, owner=user_account, contract_name='D', gas=9000000)
+        contract_account.t(gas=9000000) #this does not return nothing as it may create several states
+
+        # nothing reverted and we end up with a single state
+        self.assertEqual(self.mevm.count_states(), 1)
+
+        # Check that calling t() returned a 42
+        # That is that calling a selfdestructed contract works as the account
+        # is actually deleted at the end of the human tx
+        self.assertEqual(ABI.deserialize('uint', to_constant(self.mevm.world.transactions[-1].return_data)), 42)
+
+    def test_function_name_collision(self):
+        source_code = '''
+        contract Test{
+
+            function ret(uint) returns(uint){
+                return 1;
+            }
+
+            function ret(uint,uint) returns(uint){
+                return 2;
+            }
+
+        }
+        '''
+        user_account = self.mevm.create_account(balance=1000)
+        contract_account = self.mevm.solidity_create_contract(source_code, owner=user_account)
+        with self.assertRaises(EthereumError):
+            contract_account.ret(self.mevm.make_symbolic_value())
+
+    def test_function_name_with_signature(self):
+        source_code = '''
+        contract Test{
+
+            function ret(uint) returns(uint){
+                return 1;
+            }
+
+            function ret(uint,uint) returns(uint){
+                return 2;
+            }
+
+        }
+        '''
+        user_account = self.mevm.create_account(balance=1000)
+        contract_account = self.mevm.solidity_create_contract(source_code, owner=user_account)
+        contract_account.ret(self.mevm.make_symbolic_value(), self.mevm.make_symbolic_value(),
+                             signature='(uint256,uint256)')
+        z = list(self.mevm.all_states)[0].solve_one(self.mevm.transactions()[1].return_data)
+        self.assertEqual(ABI.deserialize('(uint256)', z)[0], 2)
+
     def test_migrate_integration(self):
         m = self.mevm
 
@@ -434,7 +515,7 @@ class EthTests(unittest.TestCase):
 
         #Some global expression `sym_add1` 
         sym_add1 = m.make_symbolic_value(name='sym_add1')
-        #Let's constraint it on the global fake constraintset
+        #Let's constrain it on the global fake constraintset
         m.constrain(sym_add1>0)
         m.constrain(sym_add1<10)
         #Symb tx 1
@@ -450,7 +531,7 @@ class EthTests(unittest.TestCase):
         #random concrete tx
         contract_account.sellerBalance(caller=attacker_account)
 
-        #anooother constraining on the global constraintset. Yet more running states could get unfeasible by this.
+        #another constraining on the global constraintset. Yet more running states could get unfeasible by this.
         m.constrain(sym_add1 > 8)
 
 
@@ -542,7 +623,8 @@ class EthTests(unittest.TestCase):
 
     def test_end_instruction_trace(self):
         """
-        Make sure that the trace files are correct, and include the end instructions
+        Make sure that the trace files are correct, and include the end instructions.
+        Also, make sure we produce a valid function call in trace.
         """
         class TestPlugin(Plugin):
             """
@@ -600,8 +682,31 @@ class EthTests(unittest.TestCase):
         for pc in p.context['rt']:
             self.assertIn(pc, all_rt_traces)
 
+        # Make sure the function call is correctly produced
 
+        # Extract all valid function names, and make sure we have at least one
+        existing_functions = []
+        with open(filename, 'r') as src:
+            for line in src:
+                m = re.match(r'\s*function (\w+).*', line)
+                if m:
+                    existing_functions.append(m.group(1))
 
+        self.assertGreater(len(existing_functions), 0)
+
+        tx = next(f for f in listdir if f.endswith('0.tx'))
+        with open(os.path.join(worksp, tx), 'r') as tx_f:
+            lines = tx_f.readlines()
+
+            # implicitly assert the following doesn't throw
+            header_idx = lines.index('Function call:\n')
+            func_call_summary = lines[header_idx + 1]
+
+            for f in existing_functions:
+                if func_call_summary.startswith(f) or func_call_summary.startswith("Constructor"):
+                    break
+            else:
+                self.fail('Could not find a function call summary in workspace output')
 
     def test_graceful_handle_no_alive_states(self):
         """
@@ -791,3 +896,122 @@ class EthSolidityCompilerTest(unittest.TestCase):
                 self.assertIn("lib/B.sol", source_list)
         finally:
             shutil.rmtree(d)
+
+
+
+class EthSpecificTxIntructionTests(unittest.TestCase):
+
+    def test_jmpdest_check(self):
+        '''
+            This test that jumping to a JUMPDEST in the operand of a PUSH should 
+            be treated as an INVALID instruction.
+            https://github.com/trailofbits/manticore/issues/1169
+        '''
+    
+        constraints = ConstraintSet()
+        world = evm.EVMWorld(constraints)
+    
+        world.create_account(address=0xf572e5295c57f15886f9b263e2f6d2d6c7b5ec6,
+                             balance=100000000000000000000000,
+                             code=EVMAsm.assemble('PUSH1 0x5b\nPUSH1 0x1\nJUMP')
+                            )
+        address = 0xf572e5295c57f15886f9b263e2f6d2d6c7b5ec6
+        price = 0x5af3107a4000
+        data = ''
+        caller = 0xcd1722f3947def4cf144679da39c4c32bdc35681
+        value = 1000000000000000000
+        bytecode = world.get_code(address)        
+        gas = 100000
+
+        new_vm = evm.EVM(constraints, address, data, caller, value, bytecode, world=world, gas=gas)
+
+        result = None
+        returndata = ''
+        try:
+            while True:
+                new_vm.execute()
+        except evm.EndTx as e:
+            result = e.result
+            if e.result in ('RETURN', 'REVERT'):
+                returndata = e.data
+
+        self.assertEqual(result, 'THROW')
+        self.assertEqual(new_vm.gas, 99992)
+        
+
+    def test_delegatecall_env(self):
+        '''
+            This test that the delegatecalled environment is identicall to the caller
+            https://github.com/trailofbits/manticore/issues/1169
+        '''
+        constraints = ConstraintSet()
+        world = evm.EVMWorld(constraints)
+        asm_acc1 = '''  CALLER
+                        PUSH1 0x0
+                        SSTORE
+                        ADDRESS
+                        PUSH1 0x1
+                        SSTORE
+                        CALLVALUE
+                        PUSH1 0x2
+                        SSTORE
+                        STOP
+                  '''
+        # delegatecall(gas, address, in_offset, in_size, out_offset, out_size)
+        asm_acc2 = '''  PUSH1 0x0
+                        PUSH2 0X0
+                        PUSH1 0x0
+                        PUSH2 0X0
+                        PUSH32 0x111111111111111111111111111111111111111
+                        PUSH32 0x10000
+                        DELEGATECALL
+                        STOP
+            '''
+
+        world.create_account(address=0x111111111111111111111111111111111111111,
+                             code=EVMAsm.assemble(asm_acc1))
+
+        world.create_account(address=0x222222222222222222222222222222222222222,
+                             code=EVMAsm.assemble(asm_acc2))
+
+        world.create_account(address=0x333333333333333333333333333333333333333,
+                             balance=100000000000000000000000,
+                             code=EVMAsm.assemble(asm_acc2))
+
+        world.transaction(0x222222222222222222222222222222222222222, caller=0x333333333333333333333333333333333333333, value=10, gas=5000000)
+
+
+        try:
+            while True:
+                world.execute()
+        except TerminateState as e:
+            result = str(e)
+
+        self.assertEqual(result, 'STOP')
+
+        # Check there is something written to the storage of the contract making
+        # the delegatecall
+        self.assertTrue(world.has_storage(0x222222222222222222222222222222222222222))
+
+        # Caller at delegatecalled contract must be original caller
+        self.assertEqual( world.get_storage_data(0x222222222222222222222222222222222222222, 0), 0x333333333333333333333333333333333333333)
+        # address at delegatecalled contract must be original address
+        self.assertEqual( world.get_storage_data(0x222222222222222222222222222222222222222, 1), 0x222222222222222222222222222222222222222)
+        # value at delegatecalled contract must be original value
+        self.assertEqual( world.get_storage_data(0x222222222222222222222222222222222222222, 2), 10)
+
+        # check balances
+        self.assertEqual(world.get_balance(0x111111111111111111111111111111111111111), 0)
+        self.assertEqual(world.get_balance(0x222222222222222222222222222222222222222), 10)
+        self.assertEqual(world.get_balance(0x333333333333333333333333333333333333333), 100000000000000000000000-10)
+
+        #checl delegated call storage was not touch
+        self.assertFalse(world.has_storage(0x111111111111111111111111111111111111111))
+        self.assertEqual( world.get_storage_data(0x111111111111111111111111111111111111111, 0), 0)
+        self.assertEqual( world.get_storage_data(0x111111111111111111111111111111111111111, 1), 0)
+        self.assertEqual( world.get_storage_data(0x111111111111111111111111111111111111111, 2), 0)
+        self.assertFalse(world.has_storage(0x333333333333333333333333333333333333333))
+
+
+if __name__ == '__main__':
+    unittest.main()

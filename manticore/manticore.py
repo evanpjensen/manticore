@@ -17,11 +17,13 @@ import elftools
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
 
+
 from .core.executor import Executor
 from .core.state import State, TerminateState
 from .core.smtlib import solver, ConstraintSet
 from .core.workspace import ManticoreOutput
 from .platforms import linux, evm, decree
+from .utils import config
 from .utils.helpers import issymbolic
 from .utils.nointerrupt import WithKeyboardInterruptAs
 from .utils.event import Eventful
@@ -31,13 +33,6 @@ from .utils import log
 
 logger = logging.getLogger(__name__)
 log.init_logging()
-
-
-class ManticoreError(Exception):
-    """
-    Top level Exception object for custom exception hierarchy
-    """
-    pass
 
 
 def make_decree(program, concrete_start='', **kwargs):
@@ -151,6 +146,8 @@ class Manticore(Eventful):
         self._executor = Executor(store=self._output.store, policy=policy)
         self._workers = []
 
+        self.plugins = set()
+
         # Link Executor events to default callbacks in manticore object
         self.forward_events_from(self._executor)
 
@@ -160,20 +157,21 @@ class Manticore(Eventful):
             self._initial_state = make_initial_state(path_or_state, argv=argv, **kwargs)
         elif isinstance(path_or_state, State):
             self._initial_state = path_or_state
+            #froward events from newly loaded object
+            self._executor.forward_events_from(self._initial_state, True)
         else:
             raise TypeError('path_or_state must be either a str or State, not {}'.format(type(path_or_state).__name__))
 
         if not isinstance(self._initial_state, State):
-            raise TypeError("Manticore must be intialized with either a State or a path to a binary")
+            raise TypeError("Manticore must be initialized with either a State or a path to a binary")
 
-        self.plugins = set()
+        # Move the following into a linux plugin
 
-        # Move the folowing into a plugin
         self._assertions = {}
         self._coverage_file = None
         self.trace = None
 
-        # FIXME move the folowing to aplugin
+        # FIXME move the following to a plugin
         self.subscribe('will_generate_testcase', self._generate_testcase_callback)
         self.subscribe('did_finish_run', self._did_finish_run_callback)
 
@@ -217,10 +215,18 @@ class Manticore(Eventful):
                         logger.warning("Plugin methods named '%s()' should start with 'on_', 'will_' or 'did_' on plugin %s",
                                        plugin_method_name, type(plugin).__name__)
 
+        plugin.on_register()
+
     def unregister_plugin(self, plugin):
         assert plugin in self.plugins, "Plugin instance not registered"
+        plugin.on_unregister()
         self.plugins.remove(plugin)
         plugin.manticore = None
+
+    def __del__(self):
+        plugins = list(self.plugins)
+        for plugin in plugins:
+            self.unregister_plugin(plugin)
 
     @classmethod
     def linux(cls, path, argv=None, envp=None, entry_symbol=None, symbolic_files=None, concrete_start='', **kwargs):
@@ -236,7 +242,7 @@ class Manticore(Eventful):
         :type envp: str
         :param symbolic_files: Filenames to mark as having symbolic input
         :type symbolic_files: list[str]
-        :param str concrete_start: Concrete stdin to use before symbolic inputt
+        :param str concrete_start: Concrete stdin to use before symbolic input
         :param kwargs: Forwarded to the Manticore constructor
         :return: Manticore instance, initialized with a Linux State
         :rtype: Manticore
@@ -252,7 +258,7 @@ class Manticore(Eventful):
         Constructor for Decree binary analysis.
 
         :param str path: Path to binary to analyze
-        :param str concrete_start: Concrete stdin to use before symbolic inputt
+        :param str concrete_start: Concrete stdin to use before symbolic input
         :param kwargs: Forwarded to the Manticore constructor
         :return: Manticore instance, initialized with a Decree State
         :rtype: Manticore
@@ -290,7 +296,7 @@ class Manticore(Eventful):
     @property
     def context(self):
         ''' Convenient access to shared context '''
-        if not self.running:
+        if self._context is not None:
             return self._context
         else:
             logger.warning("Using shared context without a lock")
@@ -323,7 +329,7 @@ class Manticore(Eventful):
 
         @contextmanager
         def _real_context():
-            if not self.running:
+            if self._context is not None:
                 yield self._context
             else:
                 with self._executor.locked_context() as context:
@@ -351,7 +357,7 @@ class Manticore(Eventful):
 
     def enqueue(self, state):
         ''' Dynamically enqueue states. Users should typically not need to do this '''
-        assert not self.running, "Can't add state where running. Can we?"
+        assert not self.running, "Can't add state when running, can we?"
         self._executor.enqueue(state)
 
     ###########################################################################
@@ -523,7 +529,7 @@ class Manticore(Eventful):
         # Everything is good add it.
         state.constraints.add(assertion)
 
-    ##########################################################################
+    ############################################################################
     # Some are placeholders Remove FIXME
     # Any platform specific callback should go to a plugin
 
@@ -566,15 +572,16 @@ class Manticore(Eventful):
                     marshal.dump(ps.stats, s)
 
     def _start_run(self):
-        assert not self.running
+        assert not self.running and self._context is not None
         self._publish('will_start_run', self._initial_state)
 
         if self._initial_state is not None:
             self.enqueue(self._initial_state)
             self._initial_state = None
 
-        # Copy the local main context to the shared conext
+        # Copy the local main context to the shared context
         self._executor._shared_context.update(self._context)
+        self._context = None
 
     def _finish_run(self, profiling=False):
         assert not self.running
@@ -671,6 +678,9 @@ class Manticore(Eventful):
     def _did_finish_run_callback(self):
         with self._output.save_stream('command.sh') as f:
             f.write(' '.join(sys.argv))
+
+        with self._output.save_stream('manticore.yml') as f:
+            config.save(f)
 
         elapsed = time.time() - self._time_started
         logger.info('Results in %s', self._output.store.uri)
