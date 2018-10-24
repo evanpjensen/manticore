@@ -184,6 +184,7 @@ class ABI(object):
         Given a type specification, break evm call data into it's constituant parts.
 
         ex::
+
             evm_type='(int,int256)'
             arg1=0x4141
             arg2=0x4242
@@ -191,6 +192,12 @@ class ABI(object):
             #serialized == bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00AA\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BB')
             deserialized = ABI.deserialize(evm_type,serialized)
             assert((arg1,arg2)==deserialized)
+
+        :param type_spec: Argument types as would appear in solidity declaration
+        :param type_spec: str
+        :param data: EVM call data
+        :param data: bytearray
+        :rtype: tuple[various types]
 
         """
         try:

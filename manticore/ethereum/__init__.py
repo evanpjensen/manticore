@@ -56,9 +56,11 @@ class FilterFunctions(Plugin):
         Examples
 
         Do not explore any human transactions that end up calling a constant function::
+
             no_human_constant = FilterFunctions(depth='human', mutability='constant', include=False)
 
         At human tx depth only accept synthetic check functions::
+        
             only_tests = FilterFunctions(regexp=r'mcore_.*', depth='human', include=False)
 
         :param regexp: a regular expression over the name of the function '.*' will match all functions
