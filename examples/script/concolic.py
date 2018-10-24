@@ -4,11 +4,15 @@
 Rough concolic execution implementation
 
 Limitations
+
 - tested only on the simpleassert example program in examples/
+
 - only works for 3 ints of stdin
 
 Bugs
+
 - Will probably break if a newly discovered branch gets more input/does another read(2)
+
 - possibly unnecessary deepcopies
 
 '''
@@ -240,7 +244,7 @@ def concrete_input_to_constraints(ci, prev=None):
     if trace_rips in traces:
         return [], []
     traces.add(trace_rips)
-    
+
     log("getting constraints from symbolic run")
     cons, datas = symbolic_run_get_cons(trc)
     # hmmm: ideally, do some smart stuff so we don't have to check if the

@@ -24,6 +24,11 @@ _manager = None
 
 
 def manager():
+    """ Get multiprocessing manager
+
+    Transparently creates a :obj:`multiprocessing.manager.SyncManager` the first time it's invoked. Used for sharing values across multipe concurrently executing Manticore instances.
+
+    """
     global _manager
     if _manager is None:
         _manager = SyncManager()
@@ -39,8 +44,11 @@ class Store(object):
     In subclasses:
 
      * Implement either save_value/load_value, or save_stream/load_stream, or both.
+
      * Define a `store_type` class variable of type str.
+
        * This is used as a prefix for a store descriptor
+
     """
 
     @classmethod
@@ -49,8 +57,11 @@ class Store(object):
         Create a :class:`~manticore.core.workspace.Store` instance depending on the descriptor.
 
         Valid descriptors:
+
           * fs:<path>
+
           * redis:<hostname>:<port>
+
           * mem:
 
         :param str desc: Store descriptor
@@ -329,6 +340,12 @@ class Workspace(object):
         self._suffix = '.pkl'
 
     def try_loading_workspace(self):
+        """ Reload existing workspace
+
+        Attempt to load existing workspace. Return None on failure.
+
+        :rtype: list[int] or None
+        """
         state_names = self._store.ls('{}*'.format(self._prefix))
 
         def get_state_id(name):
@@ -439,8 +456,8 @@ class ManticoreOutput(object):
         """
         Return a descriptor that created this workspace. Descriptors are of the
         format <type>:<uri>, where type signifies the medium. For example,
-          fs:/tmp/workspace
-          redis:127.0.0.1:6379
+        fs:/tmp/workspace
+        redis:127.0.0.1:6379
 
         :rtype: str
         """
@@ -542,6 +559,11 @@ class ManticoreOutput(object):
                 f.write('0x{:x}\n'.format(entry))
 
     def save_constraints(self, state):
+        """ Write constraints to file
+
+        Generate a `.smt` file containing constraints in for this execution. The generated file is written in the project directory.
+
+        """
         # XXX(yan): We want to conditionally enable this check
         # assert solver.check(state.constraints)
 
@@ -549,6 +571,11 @@ class ManticoreOutput(object):
             f.write(str(state.constraints))
 
     def save_input_symbols(self, state):
+        """ Write inputs to file
+
+        Generate a `.input` file containing the inputs generated for this execution. The generated file is written in the project directory.
+
+        """
         with self._named_stream('input') as f:
             for symbol in state.input_symbols:
                 buf = solver.get_value(state.constraints, symbol)

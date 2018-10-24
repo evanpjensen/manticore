@@ -53,7 +53,7 @@ class _Group:
 
     def add(self, name: str, default=None, description: str=None):
         """
-        Add a variable named |name| to this value group, optionally giving it a
+        Add a variable named `name` to this value group, optionally giving it a
         default value and a description.
 
         Variables must be added with this method before they can be set or read.
@@ -88,7 +88,7 @@ class _Group:
 
     def get_description(self, name: str) -> str:
         """
-        Return the description, or a help string of variable identified by |name|.
+        Return the description, or a help string of variable identified by `name`.
         """
         if name not in self._vars:
             raise ConfigError(f"{self.name}.{name} not defined.")
@@ -121,7 +121,7 @@ class _Group:
 
 def get_group(name: str):
     """
-    Get a configuration variable group named |name|
+    Get a configuration variable group named `name`
     """
     global _groups
 
@@ -136,7 +136,7 @@ def get_group(name: str):
 
 def save(f):
     """
-    Save current config state to an yml file stream identified by |f|
+    Save current config state to an yml file stream identified by `f`
 
     :param f: where to write the config file
     """
@@ -154,7 +154,7 @@ def save(f):
 
 def parse_config(f):
     """
-    Load an yml-formatted configuration from file stream |f|
+    Load an yml-formatted configuration from file stream `f`
 
     :param file f: Where to read the config.
     """
@@ -175,7 +175,7 @@ def parse_config(f):
 
 def load_overrides(path=None):
     """
-    Load config overrides from the yml file at |path|, or from default paths. If a path
+    Load config overrides from the yml file at `path`, or from default paths. If a path
     is provided and it does not exist, raise an exception
 
     Default paths: ./mcore.yml, ./.mcore.yml, ./manticore.yml, ./.manticore.yml.
@@ -202,7 +202,8 @@ def load_overrides(path=None):
 
 def add_config_vars_to_argparse(args):
     """
-    Import all defined config vars into |args|, for parsing command line.
+    Import all defined config vars into `args`, for parsing command line.
+
     :param args: A container for argparse vars
     :type args: argparse.ArgumentParser or argparse._ArgumentGroup
     :return:
@@ -263,5 +264,3 @@ def get_config_keys():
     for group_name, group in _groups.items():
         for key in group:
             yield f"{group_name}.{key}"
-
-

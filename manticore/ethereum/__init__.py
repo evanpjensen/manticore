@@ -48,22 +48,24 @@ def flagged(flag):
 
 
 class FilterFunctions(Plugin):
-    def __init__(self, regexp=r'.*', mutability='both', depth='both', fallback=False, include=True, **kwargs):
-        """
-            Constrain input based on function metadata. Include or avoid functions selected by the specified criteria.
 
-            Examples:
-            #Do not explore any human transactions that end up calling a constant function
+    def __init__(self, regexp=r'.*', mutability='both', depth='both', fallback=False, include=True, **kwargs):
+        """Constrain input based on function metadata.
+        Include or avoid functions selected by the specified criteria.
+
+        Examples
+
+        Do not explore any human transactions that end up calling a constant function::
             no_human_constant = FilterFunctions(depth='human', mutability='constant', include=False)
 
-            #At human tx depth only accept synthetic check functions
+        At human tx depth only accept synthetic check functions::
             only_tests = FilterFunctions(regexp=r'mcore_.*', depth='human', include=False)
 
-            :param regexp: a regular expression over the name of the function '.*' will match all functions
-            :param mutability: mutable, constant or both will match functions declared in the abi to be of such class
-            :param depth: match functions in internal transactions, in human initiated transactions or in both types
-            :param fallback: if True include the fallback function. Hash will be 00000000 for it
-            :param include: if False exclude the selected functions, if True include them
+        :param regexp: a regular expression over the name of the function '.*' will match all functions
+        :param mutability: mutable, constant or both will match functions declared in the abi to be of such class
+        :param depth: match functions in internal transactions, in human initiated transactions or in both types
+        :param fallback: if True include the fallback function. Hash will be 00000000 for it
+        :param include: if False exclude the selected functions, if True include them
         """
         super().__init__(**kwargs)
         depth = depth.lower()
@@ -128,7 +130,8 @@ class FilterFunctions(Plugin):
 
 
 class LoopDepthLimiter(Plugin):
-    ''' This just aborts explorations that are too deep '''
+    ''' Aborts explorations that are too deep
+    '''
 
     def __init__(self, loop_count_threshold=5, **kwargs):
         super().__init__(**kwargs)
@@ -150,6 +153,11 @@ class LoopDepthLimiter(Plugin):
 
 
 class VerboseTrace(Plugin):
+    """ Instruction trace plugin
+
+    Plugin that collects information about instructions as they are executed by manticore. Computes coverage statistics. Writes output to the `str_trace` in the project directory.
+
+    """
     def will_evm_execute_instruction_callback(self, state, instruction, arguments):
         current_vm = state.platform.current_vm
         state.setdefault('str_trace', []).append(str(current_vm))
@@ -242,6 +250,16 @@ class ManticoreEVM(Manticore):
         return self.constraints.new_bitvec(nbits, name=name, avoid_collisions=avoid_collisions)
 
     def make_symbolic_address(self, name=None, select='both'):
+        """ Create symbolic representation of evm address
+
+        Create a symbolic variable reprensting an evm address. If no name is provided the variable will be named "TXADDR".
+
+        :param name: name for the address
+        :type name: str
+
+        :rtype: :obj:`Expression`
+
+        """
         if select not in ('both', 'normal', 'contract'):
             raise EthereumError('Wrong selection type')
         if select in ('normal', 'contract'):
@@ -253,6 +271,7 @@ class ManticoreEVM(Manticore):
             avoid_collisions = True
         return self.constraints.new_bitvec(160, name=name, avoid_collisions=avoid_collisions)
 
+        #XXX dead code?
         constraint = symbolic_address == 0
         for contract_account_i in map(int, self._accounts.values()):
             constraint = Operators.OR(symbolic_address == contract_account_i, constraint)
@@ -260,6 +279,13 @@ class ManticoreEVM(Manticore):
         return symbolic_address
 
     def constrain(self, constraint):
+        """ Add constraint
+
+        Add a constraint to the model. If the model contains multiple states they all inherit the constraint.
+
+        :param constraint: Constraint to add.
+        :type constraint: :obj:`Expression`
+        """
         if self.count_states() == 0:
             self.constraints.add(constraint)
         else:
@@ -431,6 +457,13 @@ class ManticoreEVM(Manticore):
         return dict(self._accounts)
 
     def account_name(self, address):
+        """ Get account name
+        If the account specified by `address` has a friendly name, return it. Otherwise return the address as a hexadecimal string.
+
+        :param address: address to lookup
+        :type address: int
+        :rtype: str
+        """
         for name, account in self._accounts.items():
             if account.address == address:
                 return name
@@ -445,6 +478,14 @@ class ManticoreEVM(Manticore):
         return {name: account for name, account in self._accounts.items() if isinstance(account, EVMContract)}
 
     def get_account(self, name):
+        """ Get EVMAccount from name
+
+        Given a name, return the corresponding account.
+
+        :param name: name of account
+        :type name: str
+        :rtype: :class:`EVMAccount`
+        """
         return self._accounts[name]
 
     def __init__(self, procs=10, **kwargs):
@@ -773,6 +814,8 @@ class ManticoreEVM(Manticore):
             :type address: int
             :param code: the runtime code for the new account (None means normal account) (optional)
             :param name: a global account name eg. for use as reference in the reports (optional)
+            :type name: str
+
             :return: an EVMAccount
         """
         # Need at least one state where to apply this
@@ -947,6 +990,33 @@ class ManticoreEVM(Manticore):
         return address
 
     def multi_tx_analysis(self, solidity_filename, contract_name=None, tx_limit=None, tx_use_coverage=True, tx_send_ether=True, tx_account="attacker", args=None):
+        """ Perform symbilic exploration of contract
+
+        Execute symbolic transactions against the contract until all paths are explored or `tx_limit` is hit.
+
+        :param solidity_filename: Filename containing contract to analyze
+        :type solidity_filename: str
+
+        :param contract_name: Name of contract to analyze
+        :type contract_name: str
+
+        :param tx_limit: The maximum number of transactions to execute before halting. If left unspecified analysis will continue until no more code can be explored.
+        :type tx_limit: int optional [Default=None]
+
+        :param tx_use_coverage:
+        :type tx_use_coverage: bool [Default=True]
+
+        :param tx_send_ether:
+        :type tx_send_ether: bool [Default=True]
+
+        :param tx_account: Name of account initiating transactions against contract
+        :type tx_account: str [Default=attacker]
+
+        :param args: Named arguments to pass to :meth:`create_contract`
+        :type args: dict [Default=None]
+
+        :rtype: None
+        """
         owner_account = self.create_account(balance=1000, name='owner')
         attacker_account = self.create_account(balance=1000, name='attacker')
 
@@ -1227,6 +1297,16 @@ class ManticoreEVM(Manticore):
         return self.metadata.get(int(address))
 
     def register_detector(self, d):
+        """ Register detector plugin
+
+        Register a detector plugin. The plugin will run it's analusis as the contract is executing.
+
+        :param d: Instantiated detector object to be registered.
+        :type d: :obj:`Detector`
+        :return: Name of detector.
+        :rtype: str
+
+        """
         if not isinstance(d, Detector):
             raise EthereumError("Not a Detector")
         if d.name in self.detectors:
@@ -1236,6 +1316,15 @@ class ManticoreEVM(Manticore):
         return d.name
 
     def unregister_detector(self, d):
+        """ Remove registered detector
+
+        Unregister a detector plugin, thereby preventing additional analysis.
+
+        :param d: Detector object to be removed.
+        :type d: :obj:`Detector`
+        :rtype: None
+
+        """
         if not isinstance(d, (Detector, str)):
             raise EthereumError("Not a Detector")
         name = d
@@ -1252,9 +1341,33 @@ class ManticoreEVM(Manticore):
         return self._executor._workspace._store.uri
 
     def generate_testcase(self, state, name, message=''):
+        """ Generate testcase for state
+
+        Generate reproducable, named, testcase for a given state.
+
+        :param state: state to generate testcase for
+        :type state: :class:`manticore.core.state.State`
+
+        :param name: name to give the state
+        :type name: str
+
+        :param message: message accompanying the state
+        :type message: optional str
+
+        :rtype: None
+        """
         self._generate_testcase_callback(state, name, message)
 
     def current_location(self, state):
+        """ Get current location of EVM program counter
+
+        Returns the current location and brief analysis of EVM program counter.
+
+        :param state: State to introspect on
+        :type state: :class:`manticore.core.state.State`
+        :rtype: str
+        """
+
         world = state.platform
         address = world.current_vm.address
         pc = world.current_vm.pc

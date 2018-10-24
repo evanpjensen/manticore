@@ -138,6 +138,7 @@ def t_FUNCTION(t):
 
 # Error handling rule
 def t_error(t):
+    """Token error"""
     raise Exception("Illegal character '%s'" % t.value[0])
 
 
@@ -214,6 +215,7 @@ def p_dynamic_fixed_type(p):
 
 
 def p_error(p):
+    """Parser error"""
     raise Exception("Syntax Error at abitypes")
     #print("Syntax error at offset {:d}".format(lexer.lexpos))
 

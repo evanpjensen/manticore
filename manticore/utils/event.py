@@ -37,11 +37,15 @@ class EventsGatherMetaclass(type):
 
 class Eventful(object, metaclass=EventsGatherMetaclass):
     '''
-        Abstract class for objects emitting and receiving events
-        An eventful object can:
-          - publish an event with arbitrary arguments to its subscribers
-          - let foreign objects subscribe their methods to events emitted here
-          - forward events to/from other eventful objects
+    Abstract class for objects emitting and receiving events
+    An eventful object can:
+
+    - publish an event with arbitrary arguments to its subscribers
+
+    - let foreign objects subscribe their methods to events emitted here
+
+    - forward events to/from other eventful objects
+
     '''
 
     # Maps an Eventful subclass with a set of all the events it publishes.

@@ -40,6 +40,10 @@ consts.add('maxsolutions', default=10000, description='Maximum solutions to prov
 consts.add('z3_bin', default='z3', description='Z3 binary to use')
 
 class Solver(object, metaclass=ABCMeta):
+    """ Solver Baseclass
+    Generic solver interface.
+    """
+
     @abstractmethod
     def __init__(self):
         pass
@@ -113,6 +117,9 @@ Version = collections.namedtuple('Version', 'major minor patch')
 
 
 class Z3Solver(Solver):
+    """Z3 Solver
+    Manages the Z3 solver.
+    """
     def __init__(self):
         ''' Build a Z3 solver instance.
             This is implemented using an external z3 solver (via a subprocess).

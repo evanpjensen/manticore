@@ -151,9 +151,12 @@ class Operand(object):
     def type(self):
         ''' This property encapsulates the operand type.
             It may be one of the following:
-                register
-                memory
-                immediate
+
+            - register
+
+            - memory
+
+            - immediate
         '''
         raise NotImplementedError
 
@@ -183,9 +186,16 @@ class Operand(object):
 
 
 class RegisterFile(object):
+    """Abstract implementation of a register file
+
+    This class represents a machines collection of registers.
+
+    """
     def __init__(self, aliases=None):
-        # dict mapping from alias register name ('PC') to actual register
-        # name ('RIP')
+        """ RegisterFile Constructor
+        :param aliases: Dict mapping from alias register name ('PC') to actual register name ('RIP')
+        :type aliases: Dict (str : str)
+        """
         self._aliases = aliases if aliases is not None else {}
 
     def _alias(self, register):
@@ -435,11 +445,17 @@ class Cpu(Eventful):
     The following attributes need to be defined in any derived class
 
     - arch
+
     - mode
+
     - max_instr_width
+
     - address_bit_size
+
     - pc_alias
+
     - stack_alias
+
     '''
 
     _published_events = {'write_register', 'read_register', 'write_memory', 'read_memory', 'decode_instruction',
@@ -517,7 +533,7 @@ class Cpu(Eventful):
 
         :param str register: register name (as listed in `self.all_registers`)
         :param value: register value
-        :type value: int or long or Expression
+        :type value: int or long or :obj:`Expression`
         '''
         self._publish('will_write_register', register, value)
         value = self._regfile.write(register, value)
@@ -644,9 +660,7 @@ class Cpu(Eventful):
         Writes a string to memory, appending a NULL-terminator at the end.
         :param int where: Address to write the string to
         :param str string: The string to write to memory
-        :param int max_length:
-            The size in bytes to cap the string at, or None [default] for no
-            limit. This includes the NULL terminator.
+        :param int max_length: The size in bytes to cap the string at, or None [default] for no limit. This includes the NULL terminator.
         :param force: whether to ignore memory permissions
         '''
 
@@ -744,6 +758,16 @@ class Cpu(Eventful):
         This will decode an instruction from memory pointed by `pc`
 
         :param int pc: address of the instruction
+
+        Raises:
+            DecodeException:
+                The memory located at pc could not be disassembled.
+            InvalidMemoryAccess:
+                The memory located at pc is not executable.
+
+       :rtype: list of strings
+
+
         '''
         # No dynamic code!!! #TODO!
         # Check if instruction was already decoded
@@ -793,6 +817,12 @@ class Cpu(Eventful):
 
     @property
     def instruction(self):
+        """Get string representation of the "current" instruction.
+
+        If the program hasn't started executing yet get the string representation of the first instruction otherwise get the string representation of the most recently executed instruction.
+
+        :rtype: str
+        """
         if self._last_pc is None:
             return self.decode_instruction(self.PC)
         else:
@@ -886,6 +916,15 @@ class Cpu(Eventful):
             del emu
 
     def render_instruction(self, insn=None):
+        """ Get string representation of instruction
+
+        Get a string representation of an instruction including the address, mnemonic and operands OR a string representing failure to decode the instruction.
+
+        :param insn: Instruction to render
+        :type insn: :obj:`Instruction` or None
+        :rtype: str
+
+        """
         try:
             insn = self.instruction
             return "INSTRUCTION: 0x%016x:\t%s\t%s" % (insn.address,
@@ -895,6 +934,12 @@ class Cpu(Eventful):
             return "{can't decode instruction}"
 
     def render_register(self, reg_name):
+        """ Get string representation of register
+
+        :param reg_name: register to render
+        :type reg_name: str
+        :rtype: str
+        """
         result = ""
 
         value = self.read_register(reg_name)
@@ -909,6 +954,11 @@ class Cpu(Eventful):
         return result
 
     def render_registers(self):
+        """ Render all registers in machine :obj:`RegisterFile`
+        :rtype: list of strings
+        """
+
+
         # FIXME add a context manager at utils that look for all Signal
         # backup, null, use, then restore the list.
         # will disabled_signals(self):

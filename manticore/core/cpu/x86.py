@@ -53,7 +53,10 @@ OP_NAME_MAP = {
 ###############################################################################
 # Auxiliary decorators...
 def rep(old_method):
-    # This decorates REP instructions (STOS, LODS, MOVS, INS, OUTS)
+    """ REP instruction decorator
+
+    This decorates REP instructions (STOS, LODS, MOVS, INS, OUTS)
+    """
     @wraps(old_method)
     def new_method(cpu, *args, **kw_args):
         prefix = cpu.instruction.prefix
@@ -82,7 +85,10 @@ def rep(old_method):
 
 
 def repe(old_method):
-    # This decorates REPE enabled instructions (SCAS, CMPS)
+    """ REPE enabled instruction Decorator
+
+    This decorates REPE enabled instructions (SCAS, CMPS)
+    """
     @wraps(old_method)
     def new_method(cpu, *args, **kw_args):
         prefix = cpu.instruction.prefix
@@ -122,6 +128,23 @@ def repe(old_method):
 
 
 class AMD64RegFile(RegisterFile):
+    """ AMD64 Register file abstraction
+
+    Has support for:
+
+        * 64- / 32- / 16- / 8-bit general-purpose registers
+
+        * Segment registers
+
+        * RFLAGS
+
+        * x87 FP registers
+
+        * SSE registers
+
+        * AVX registers
+
+    """
     Regspec = collections.namedtuple('RegSpec', 'register_id ty offset size reset')
     _flags = {
         'CF': 0,
@@ -604,6 +627,12 @@ class AMD64RegFile(RegisterFile):
         return value
 
     def sizeof(self, reg):
+        """ Get register bit size
+
+        :param reg: register name
+        :type reg: string
+        :rtype: int
+        """
         return self._table[reg].size
 
 
@@ -1009,8 +1038,7 @@ class X86Cpu(Cpu):
 ########################################################################################
     @instruction
     def AAA(cpu):
-        '''
-        ASCII adjust after addition.
+        '''ASCII adjust after addition.
 
         Adjusts the sum of two unpacked BCD values to create an unpacked BCD
         result. The AL register is the implied source and destination operand
@@ -1026,7 +1054,8 @@ class X86Cpu(Cpu):
 
         This instruction executes as described in compatibility mode and legacy mode.
         It is not valid in 64-bit mode.
-        ::
+        Operation::
+
                 IF ((AL AND 0FH) > 9) Operators.OR(AF  =  1)
                 THEN
                     AL  =  (AL + 6);
@@ -1038,7 +1067,9 @@ class X86Cpu(Cpu):
                     CF  =  0;
                 FI;
                 AL  =  AL AND 0FH;
+
         :param cpu: current CPU.
+
         '''
         cpu.AF = Operators.OR(cpu.AL & 0x0F > 9, cpu.AF)
         cpu.CF = cpu.AF
@@ -1292,20 +1323,21 @@ class X86Cpu(Cpu):
         AF, SF, and OF flags are set according to the results of the comparison
         operation::
 
-        (* accumulator  =  AL, AX, EAX or RAX,  depending on whether *)
-        (* a byte, word, a doubleword or a 64bit comparison is being performed*)
-        IF accumulator  ==  DEST
-        THEN
-            ZF  =  1
-            DEST  =  SRC
-        ELSE
-            ZF  =  0
-            accumulator  =  DEST
-        FI;
+            (* accumulator  =  AL, AX, EAX or RAX,  depending on whether *)
+            (* a byte, word, a doubleword or a 64bit comparison is being performed*)
+            IF accumulator  ==  DEST
+            THEN
+                ZF  =  1
+                DEST  =  SRC
+            ELSE
+                ZF  =  0
+                accumulator  =  DEST
+            FI;
 
         :param cpu: current CPU.
         :param dest: destination operand.
         :param src: source operand.
+
         '''
         size = dest.size
         reg_name = {8: 'AL', 16: 'AX', 32: 'EAX', 64: 'RAX'}[size]
@@ -1353,6 +1385,7 @@ class X86Cpu(Cpu):
 
         :param cpu: current CPU.
         :param dest: destination operand.
+
         '''
         size = dest.size
         cmp_reg_name_l = {64: 'EAX', 128: 'RAX'}[size]
@@ -1622,47 +1655,48 @@ class X86Cpu(Cpu):
         The source operand can be a general-purpose register or a memory
         location. The action of this instruction depends on the operand size.::
 
-        IF SRC  =  0
-        THEN #DE; (* divide error *)
-        FI;
-        IF OpernadSize  =  8 (* word/byte operation *)
-        THEN
-            temp  =  AX / SRC; (* signed division *)
-            IF (temp > 7FH) Operators.OR(temp < 80H)
-            (* if a positive result is greater than 7FH or a negative result is
-            less than 80H *)
-            THEN #DE; (* divide error *) ;
-            ELSE
-                AL  =  temp;
-                AH  =  AX SignedModulus SRC;
+            IF SRC  =  0
+            THEN #DE; (* divide error *)
             FI;
-        ELSE
-            IF OpernadSize  =  16 (* doubleword/word operation *)
+            IF OpernadSize  =  8 (* word/byte operation *)
             THEN
-                temp  =  DX:AX / SRC; (* signed division *)
-                IF (temp > 7FFFH) Operators.OR(temp < 8000H)
-                (* if a positive result is greater than 7FFFH *)
-                (* or a negative result is less than 8000H *)
+                temp  =  AX / SRC; (* signed division *)
+                IF (temp > 7FH) Operators.OR(temp < 80H)
+                (* if a positive result is greater than 7FH or a negative result is
+                less than 80H *)
                 THEN #DE; (* divide error *) ;
                 ELSE
-                    AX  =  temp;
-                    DX  =  DX:AX SignedModulus SRC;
+                    AL  =  temp;
+                    AH  =  AX SignedModulus SRC;
                 FI;
-            ELSE (* quadword/doubleword operation *)
-                temp  =  EDX:EAX / SRC; (* signed division *)
-                IF (temp > 7FFFFFFFH) Operators.OR(temp < 80000000H)
-                (* if a positive result is greater than 7FFFFFFFH *)
-                (* or a negative result is less than 80000000H *)
-                THEN #DE; (* divide error *) ;
-                ELSE
-                    EAX  =  temp;
-                    EDX  =  EDX:EAX SignedModulus SRC;
+            ELSE
+                IF OpernadSize  =  16 (* doubleword/word operation *)
+                THEN
+                    temp  =  DX:AX / SRC; (* signed division *)
+                    IF (temp > 7FFFH) Operators.OR(temp < 8000H)
+                    (* if a positive result is greater than 7FFFH *)
+                    (* or a negative result is less than 8000H *)
+                    THEN #DE; (* divide error *) ;
+                    ELSE
+                        AX  =  temp;
+                        DX  =  DX:AX SignedModulus SRC;
+                    FI;
+                ELSE (* quadword/doubleword operation *)
+                    temp  =  EDX:EAX / SRC; (* signed division *)
+                    IF (temp > 7FFFFFFFH) Operators.OR(temp < 80000000H)
+                    (* if a positive result is greater than 7FFFFFFFH *)
+                    (* or a negative result is less than 80000000H *)
+                    THEN #DE; (* divide error *) ;
+                    ELSE
+                        EAX  =  temp;
+                        EDX  =  EDX:EAX SignedModulus SRC;
+                    FI;
                 FI;
             FI;
-        FI;
 
         :param cpu: current CPU.
         :param src: source operand.
+
         '''
 
         reg_name_h = {8: 'AH', 16: 'DX', 32: 'EDX', 64: 'RDX'}[src.size]
@@ -1716,23 +1750,11 @@ class X86Cpu(Cpu):
 
         Performs a signed multiplication of two operands. This instruction has
         three forms, depending on the number of operands.
-            - One-operand form. This form is identical to that used by the MUL
-            instruction. Here, the source operand (in a general-purpose
-            register or memory location) is multiplied by the value in the AL,
-            AX, or EAX register (depending on the operand size) and the product
-            is stored in the AX, DX:AX, or EDX:EAX registers, respectively.
-            - Two-operand form. With this form the destination operand (the
-            first operand) is multiplied by the source operand (second
-            operand). The destination operand is a general-purpose register and
-            the source operand is an immediate value, a general-purpose
-            register, or a memory location. The product is then stored in the
-            destination operand location.
-            - Three-operand form. This form requires a destination operand (the
-            first operand) and two source operands (the second and the third
-            operands). Here, the first source operand (which can be a
-            general-purpose register or a memory location) is multiplied by the
-            second source operand (an immediate value). The product is then
-            stored in the destination operand (a general-purpose register).
+        - One-operand form. This form is identical to that used by the MUL instruction. Here, the source operand (in a general-purpose register or memory location) is multiplied by the value in the AL, AX, or EAX register (depending on the operand size) and the product is stored in the AX, DX:AX, or EDX:EAX registers, respectively.
+
+        - Two-operand form. With this form the destination operand (the first operand) is multiplied by the source operand (second operand). The destination operand is a general-purpose register and the source operand is an immediate value, a general-purpose register, or a memory location. The product is then stored in the destination operand location.
+
+        - Three-operand form. This form requires a destination operand (the first operand) and two source operands (the second and the third operands). Here, the first source operand (which can be a general-purpose register or a memory location) is multiplied by the second source operand (an immediate value). The product is then stored in the destination operand (a general-purpose register).
 
         When an immediate value is used as an operand, it is sign-extended to
         the length of the destination operand format. The CF and OF flags are
@@ -1751,72 +1773,73 @@ class X86Cpu(Cpu):
         OF flags, however, cannot be used to determine if the upper half of the
         result is non-zero::
 
-        IF (NumberOfOperands == 1)
-        THEN
-            IF (OperandSize == 8)
+            IF (NumberOfOperands == 1)
             THEN
-                AX = AL * SRC (* Signed multiplication *)
-                IF AL == AX
+                IF (OperandSize == 8)
                 THEN
-                    CF = 0; OF = 0;
-                ELSE
-                    CF = 1; OF = 1;
-                FI;
-            ELSE
-                IF OperandSize == 16
-                THEN
-                    DX:AX = AX * SRC (* Signed multiplication *)
-                    IF sign_extend_to_32 (AX) == DX:AX
+                    AX = AL * SRC (* Signed multiplication *)
+                    IF AL == AX
                     THEN
                         CF = 0; OF = 0;
                     ELSE
                         CF = 1; OF = 1;
                     FI;
                 ELSE
-                    IF OperandSize == 32
+                    IF OperandSize == 16
                     THEN
-                        EDX:EAX = EAX * SRC (* Signed multiplication *)
-                        IF EAX == EDX:EAX
+                        DX:AX = AX * SRC (* Signed multiplication *)
+                        IF sign_extend_to_32 (AX) == DX:AX
                         THEN
                             CF = 0; OF = 0;
                         ELSE
                             CF = 1; OF = 1;
                         FI;
-                    ELSE (* OperandSize = 64 *)
-                        RDX:RAX = RAX * SRC (* Signed multiplication *)
-                        IF RAX == RDX:RAX
+                    ELSE
+                        IF OperandSize == 32
                         THEN
-                            CF = 0; OF = 0;
-                        ELSE
-                           CF = 1; OF = 1;
+                            EDX:EAX = EAX * SRC (* Signed multiplication *)
+                            IF EAX == EDX:EAX
+                            THEN
+                                CF = 0; OF = 0;
+                            ELSE
+                                CF = 1; OF = 1;
+                            FI;
+                        ELSE (* OperandSize = 64 *)
+                            RDX:RAX = RAX * SRC (* Signed multiplication *)
+                            IF RAX == RDX:RAX
+                            THEN
+                                CF = 0; OF = 0;
+                            ELSE
+                               CF = 1; OF = 1;
+                            FI;
                         FI;
                     FI;
-                FI;
-        ELSE
-            IF (NumberOfOperands = 2)
-            THEN
-                temp = DEST * SRC (* Signed multiplication; temp is double DEST size *)
-                DEST = DEST * SRC (* Signed multiplication *)
-                IF temp != DEST
+            ELSE
+                IF (NumberOfOperands = 2)
                 THEN
-                    CF = 1; OF = 1;
-                ELSE
-                    CF = 0; OF = 0;
-                FI;
-            ELSE (* NumberOfOperands = 3 *)
-                DEST = SRC1 * SRC2 (* Signed multiplication *)
-                temp = SRC1 * SRC2 (* Signed multiplication; temp is double SRC1 size *)
-                IF temp != DEST
-                THEN
-                    CF = 1; OF = 1;
-                ELSE
-                    CF = 0; OF = 0;
+                    temp = DEST * SRC (* Signed multiplication; temp is double DEST size *)
+                    DEST = DEST * SRC (* Signed multiplication *)
+                    IF temp != DEST
+                    THEN
+                        CF = 1; OF = 1;
+                    ELSE
+                        CF = 0; OF = 0;
+                    FI;
+                ELSE (* NumberOfOperands = 3 *)
+                    DEST = SRC1 * SRC2 (* Signed multiplication *)
+                    temp = SRC1 * SRC2 (* Signed multiplication; temp is double SRC1 size *)
+                    IF temp != DEST
+                    THEN
+                        CF = 1; OF = 1;
+                    ELSE
+                        CF = 0; OF = 0;
+                    FI;
                 FI;
             FI;
-        FI;
 
         :param cpu: current CPU.
         :param operands: variable list of operands.
+
         '''
         dest = operands[0]
         OperandSize = dest.size
@@ -2608,6 +2631,7 @@ class X86Cpu(Cpu):
         Sets the destination operand to 0 or 1 depending on the settings of the status flags (CF, SF, OF, ZF, and PF, 1, 0) in the
         EFLAGS register. The destination operand points to a byte register or a byte in memory. The condition code suffix
         (cc, 1, 0) indicates the condition being tested for::
+
                 IF condition
                 THEN
                     DEST = 1;
@@ -2617,7 +2641,7 @@ class X86Cpu(Cpu):
 
         :param cpu: current CPU.
         :param dest: destination operand.
-         '''
+        '''
         dest.write(Operators.ITEBV(dest.size, Operators.OR(cpu.CF, cpu.ZF) == False, 1, 0))
 
     @instruction
@@ -4058,12 +4082,10 @@ class X86Cpu(Cpu):
         bit-position designated by the bit offset (specified by the second operand) and stores the value
         of the bit in the CF flag. The bit base operand can be a register or a memory location; the bit
         offset operand can be a register or an immediate value:
-            - If the bit base operand specifies a register, the instruction takes the modulo 16, 32, or 64
-              of the bit offset operand (modulo size depends on the mode and register size; 64-bit operands
-              are available only in 64-bit mode).
-            - If the bit base operand specifies a memory location, the operand represents the address of the
-              byte in memory that contains the bit base (bit 0 of the specified byte) of the bit string. The
-              range of the bit position that can be referenced by the offset operand depends on the operand size.
+
+        - If the bit base operand specifies a register, the instruction takes the modulo 16, 32, or 64 of the bit offset operand (modulo size depends on the mode and register size; 64-bit operands are available only in 64-bit mode).
+
+        - If the bit base operand specifies a memory location, the operand represents the address of the byte in memory that contains the bit base (bit 0 of the specified byte) of the bit string. The range of the bit position that can be referenced by the offset operand depends on the operand size.
 
         :param cpu: current CPU.
         :param dest: bit base.
@@ -4177,16 +4199,19 @@ class X86Cpu(Cpu):
         This instruction calculates of number of bits set to 1 in the second
         operand (source) and returns the count in the first operand (a destination
         register).
-        Count = 0;
-        For (i=0; i < OperandSize; i++) {
-            IF (SRC[ i] = 1) // i'th bit
-                THEN Count++;
-            FI;
-        }
-        DEST = Count;
-        Flags Affected
-        OF, SF, ZF, AF, CF, PF are all cleared.
-        ZF is set if SRC = 0, otherwise ZF is cleared
+        Operation::
+
+            Count = 0;
+            For (i=0; i < OperandSize; i++) {
+                IF (SRC[ i] = 1) // i'th bit
+                    THEN Count++;
+                FI;
+            }
+            DEST = Count;
+            Flags Affected
+            OF, SF, ZF, AF, CF, PF are all cleared.
+            ZF is set if SRC = 0, otherwise ZF is cleared
+
         '''
         count = 0
         source = src.read()
@@ -4494,19 +4519,29 @@ class X86Cpu(Cpu):
 
     @instruction
     def PAUSE(cpu):
+        """Spin Loop Hint
+        Improves the performance of spin-wait loops. When executing a “spin-wait loop,” processors will suffer a severe
+        performance penalty when exiting the loop because it detects a possible memory order violation. The PAUSE
+        instruction provides a hint to the processor that the code sequence is a spin-wait loop. The processor uses this hint
+        to avoid the memory order violation in most situations, which greatly improves processor performance. For this
+        reason, it is recommended that a PAUSE instruction be placed in all spin-wait loops.
+        """
         pass
 
     @instruction
     def ANDN(cpu, dest, src1, src2):
         '''Performs a bitwise logical AND of inverted second operand (the first source operand)
-           with the third operand (the second source operand). The result is stored in the first
-           operand (destination operand).
+        with the third operand (the second source operand). The result is stored in the first
+        operand (destination operand).
 
-                DEST <- (NOT SRC1) bitwiseAND SRC2;
-                SF <- DEST[OperandSize -1];
-                ZF <- (DEST = 0);
-           Flags Affected
-                SF and ZF are updated based on result. OF and CF flags are cleared. AF and PF flags are undefined.
+        Operation::
+
+            DEST <- (NOT SRC1) bitwiseAND SRC2;
+            SF <- DEST[OperandSize -1];
+            ZF <- (DEST = 0);
+            Flags Affected:
+            SF and ZF are updated based on result. OF and CF flags are cleared. AF and PF flags are undefined.
+
         '''
         value = ~src1.read() & src2.read()
         dest.write(value)
@@ -4585,6 +4620,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PMINUB(cpu, dest, src):
+        """SSE Minimum of Packed Unsigned Integers"""
         dest_value = dest.read()
         src_value = src.read()
         result = 0
@@ -4596,6 +4632,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def VPXOR(cpu, dest, arg0, arg1):
+        """AVX Logical Exclusive OR """
         res = dest.write(arg0.read() ^ arg1.read())
 
     @instruction
@@ -4668,18 +4705,22 @@ class X86Cpu(Cpu):
 
     @instruction
     def PUNPCKHBW(cpu, dest, src):
+        """MMX/SSE2 Unpack and interleave high-order bytes"""
         cpu._PUNPCKH(dest, src, 8)
 
     @instruction
     def PUNPCKHWD(cpu, dest, src):
+        """MMX/SSE2 Unpack and interleave high-order words"""
         cpu._PUNPCKH(dest, src, 16)
 
     @instruction
     def PUNPCKHDQ(cpu, dest, src):
+        """MMX/SSE2 Unpack and interleave high-order doublewords"""
         cpu._PUNPCKH(dest, src, 32)
 
     @instruction
     def PUNPCKHQDQ(cpu, dest, src):
+        """MMX/SSE2 Unpack and interleave high-order quadwords"""
         cpu._PUNPCKH(dest, src, 64)
 
     @instruction
@@ -4846,12 +4887,15 @@ class X86Cpu(Cpu):
 
         Moves a double quadword from the source operand (second operand) to the destination operand
         (first operand)::
+
             OP0  =  OP1;
 
         :param cpu: current CPU.
         :param op0: destination operand.
         :param op1: source operand.
+
         @todo: check alignment.
+
         '''
         op0.write(op1.read())
 
@@ -5054,6 +5098,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PCMPISTRI(cpu, op0, op1, op2):
+        """ Packed Compare Implicit Length Strings, Return Index """
         arg0, arg1, ctlbyte = cpu._pcmpxstrx_operands(op0, op1, op2)
         varg0 = cpu._pcmpistrx_varg(arg0, ctlbyte)
         varg1 = cpu._pcmpistrx_varg(arg1, ctlbyte)
@@ -5067,6 +5112,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PCMPISTRM(cpu, op0, op1, op2):
+        """  Packed Compare Implicit Length Strings, Return Mask"""
         arg0, arg1, ctlbyte = cpu._pcmpxstrx_operands(op0, op1, op2)
         varg0 = cpu._pcmpistrx_varg(arg0, ctlbyte)
         varg1 = cpu._pcmpistrx_varg(arg1, ctlbyte)
@@ -5077,6 +5123,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PCMPESTRI(cpu, op0, op1, op2):
+        """ Packed Compare Explicit Length Strings, Return Index """
         arg0, arg1, ctlbyte = cpu._pcmpxstrx_operands(op0, op1, op2)
         varg0 = cpu._pcmpestrx_varg(arg0, 'EAX', ctlbyte)
         varg1 = cpu._pcmpestrx_varg(arg1, 'EDX', ctlbyte)
@@ -5090,6 +5137,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PCMPESTRM(cpu, op0, op1, op2):
+        """  Packed Compare Explicit Length Strings, Return Mask"""
         arg0, arg1, ctlbyte = cpu._pcmpxstrx_operands(op0, op1, op2)
         varg0 = cpu._pcmpestrx_varg(arg0, 'EAX', ctlbyte)
         varg1 = cpu._pcmpestrx_varg(arg1, 'EDX', ctlbyte)
@@ -5161,6 +5209,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def MOVD(cpu, op0, op1):
+        """Move doubleword"""
         cpu._writeCorrectSize(op0, op1)
 
     @instruction
@@ -5278,21 +5327,25 @@ class X86Cpu(Cpu):
 
     @instruction
     def VMOVD(cpu, op0, op1):
+        """ AVX Move Unaligned Packed Integer Values """
         cpu._writeCorrectSize(op0, op1)
 
     # MMX
     @instruction
     def VMOVUPS(cpu, op0, op1):
+        """AVX Move Unaligned Packed Single-Precision Floating-Point Values"""
         arg1 = op1.read()
         op0.write(arg1)
 
     @instruction
     def VMOVAPS(cpu, op0, op1):
+        """ AVX Move Aligned Packed Single-Precision Floating-Point Values"""
         arg1 = op1.read()
         op0.write(arg1)
 
     @instruction
     def VMOVQ(cpu, op0, op1):
+        """ AVX Move Doubleword/Move Quadword"""
         cpu._writeCorrectSize(op0, op1)
 
     # FPU:
@@ -5458,6 +5511,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def VPTEST(cpu, dest, src):
+        """AVX Logical Compare"""
         cpu.OF = False
         cpu.AF = False
         cpu.PF = False
@@ -5580,19 +5634,21 @@ class X86Cpu(Cpu):
         When the source and destination operands are XMM registers, the three high-order doublewords of the
         destination operand remain unchanged. When the source operand is a memory location and destination
         operand is an XMM registers, the three high-order doublewords of the destination operand are cleared to all 0s.
+        Operation::
 
-        //MOVSS instruction when source and destination operands are XMM registers:
-        if(IsXMM(Source) && IsXMM(Destination))
-            Destination[0..31] = Source[0..31];
-            //Destination[32..127] remains unchanged
-            //MOVSS instruction when source operand is XMM register and destination operand is memory location:
-        else if(IsXMM(Source) && IsMemory(Destination))
-            Destination = Source[0..31];
-        //MOVSS instruction when source operand is memory location and destination operand is XMM register:
-        else {
-                Destination[0..31] = Source;
-                Destination[32..127] = 0;
-        }
+            //MOVSS instruction when source and destination operands are XMM registers:
+            if(IsXMM(Source) && IsXMM(Destination))
+                Destination[0..31] = Source[0..31];
+                //Destination[32..127] remains unchanged
+                //MOVSS instruction when source operand is XMM register and destination operand is memory location:
+            else if(IsXMM(Source) && IsMemory(Destination))
+                Destination = Source[0..31];
+            //MOVSS instruction when source operand is memory location and destination operand is XMM register:
+            else {
+                    Destination[0..31] = Source;
+                    Destination[32..127] = 0;
+            }
+
         '''
         if dest.type == 'register' and src.type == 'register':
             assert dest.size == 128 and src.size == 128
@@ -5619,7 +5675,8 @@ class X86Cpu(Cpu):
         When the source or destination operand is a memory operand, the operand
         must be aligned on a 16-byte boundary or a general-protection exception
         (#GP) will be generated. To move integer data to and from unaligned
-        memory locations, use the VMOVDQU instruction.'''
+        memory locations, use the VMOVDQU instruction.
+        '''
         # TODO raise exception when unaligned!
         dest.write(src.read())
 
@@ -5691,6 +5748,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PINSRW(cpu, dest, src, count):
+        """SSE Insert Word"""
         if dest.size == 64:
             # PINSRW instruction with 64-bit source operand:
             sel = count.read() & 3
@@ -5712,6 +5770,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def PEXTRW(cpu, dest, src, count):
+        """SSE Extract Word """
         if src.size == 64:
             sel = Operators.ZEXTEND(Operators.EXTRACT(count.read(), 0, 2), src.size)
         else:
@@ -5735,15 +5794,18 @@ class X86Cpu(Cpu):
     def PSLLDQ(cpu, dest, src):
         ''' Packed Shift Left Logical Double Quadword
         Shifts the destination operand (first operand) to the left by the number
-         of bytes specified in the count operand (second operand). The empty low-order
-         bytes are cleared (set to all 0s). If the value specified by the count
-         operand is greater than 15, the destination operand is set to all 0s.
-         The destination operand is an XMM register. The count operand is an 8-bit
-         immediate.
+        of bytes specified in the count operand (second operand). The empty low-order
+        bytes are cleared (set to all 0s). If the value specified by the count
+        operand is greater than 15, the destination operand is set to all 0s.
+        The destination operand is an XMM register. The count operand is an 8-bit
+        immediate.
+
+        Operation::
 
             TEMP  =  COUNT;
             if (TEMP > 15) TEMP  =  16;
             DEST  =  DEST << (TEMP * 8);
+
         '''
         count = Operators.ZEXTEND(src.read(), dest.size * 2)
         byte_count = Operators.ITEBV(src.size * 2, count > 15, 16, count)
@@ -5758,24 +5820,26 @@ class X86Cpu(Cpu):
         '''Shift Packed Data Right Logical
 
         Shifts the bits in the individual quadword in the destination operand to the right by
-        the number of bits specified in the count operand . As the bits in the data elements
+        the number of bits specified in the count operand. As the bits in the data elements
         are shifted right, the empty high-order bits are cleared (set to 0). If the value
         specified by the count operand is greater than  63, then the destination operand is set
         to all 0s.
 
-        if(OperandSize == 64) {
-                        //PSRLQ instruction with 64-bit operand:
-                        if(Count > 63) Destination[64..0] = 0;
-                        else Destination = ZeroExtend(Destination >> Count);
-                }
-                else {
-                        //PSRLQ instruction with 128-bit operand:
-                        if(Count > 15) Destination[128..0] = 0;
-                        else {
-                                Destination[0..63] = ZeroExtend(Destination[0..63] >> Count);
-                                Destination[64..127] = ZeroExtend(Destination[64..127] >> Count);
-                        }
-                }
+        operation::
+
+            if(OperandSize == 64) {
+                            //PSRLQ instruction with 64-bit operand:
+                            if(Count > 63) Destination[64..0] = 0;
+                            else Destination = ZeroExtend(Destination >> Count);
+                    }
+                    else {
+                            //PSRLQ instruction with 128-bit operand:
+                            if(Count > 15) Destination[128..0] = 0;
+                            else {
+                                    Destination[0..63] = ZeroExtend(Destination[0..63] >> Count);
+                                    Destination[64..127] = ZeroExtend(Destination[64..127] >> Count);
+                            }
+                    }
         '''
 
         count = src.read()
@@ -5790,10 +5854,12 @@ class X86Cpu(Cpu):
 
     @instruction
     def PAND(cpu, dest, src):
+        """MMX/SSE2 Logical AND"""
         dest.write(dest.read() & src.read())
 
     @instruction
     def LSL(cpu, limit_ptr, selector):
+        """Load Segment Limit"""
         selector = selector.read()
 
         if issymbolic(selector):
@@ -5890,6 +5956,7 @@ class X86Cpu(Cpu):
 
     @instruction
     def VZEROUPPER(cpu):
+        """ Zero Upper Bits of YMM Registers """
         cpu.YMM0 = cpu.YMM0 & 0xffffffffffffffffffffffffffffffff
         cpu.YMM1 = cpu.YMM1 & 0xffffffffffffffffffffffffffffffff
         cpu.YMM2 = cpu.YMM2 & 0xffffffffffffffffffffffffffffffff

@@ -89,6 +89,13 @@ class Bool(Expression):
         super().__init__(*operands, **kwargs)
 
     def cast(self, value, **kwargs):
+        """ Cast value to :obj:`Bool`
+
+        :param value: value to cast
+        :type value: Bool or int or bool
+        :rtype: :obj:`Bool`
+        """
+
         if isinstance(value, Bool):
             return value
         assert isinstance(value, (int, bool))
@@ -205,6 +212,15 @@ class BitVec(Expression):
         return 1 << (self.size - 1)
 
     def cast(self, value, **kwargs):
+        """ Cast value to BitVec
+
+        Cast `value` to a :obj:`BitVec` with the same size as `self`
+
+        :param value: Quantity to be casted
+        :type value: str or bytes or int :obj:`Expression`
+        :rtype: :obj:`BitVec`
+
+        """
         if isinstance(value, BitVec):
             assert value.size == self.size
             return value
@@ -345,42 +361,70 @@ class BitVec(Expression):
 
     # Unsigned comparisons
     def ugt(self, other):
+        """Unsigned greater than
+        """
         return UnsignedGreaterThan(self, self.cast(other))
 
     def uge(self, other):
+        """Unsigned greater than or equal
+        """
         return UnsignedGreaterOrEqual(self, self.cast(other))
 
     def ult(self, other):
+        """Unsigned less than
+        """
         return UnsignedLessThan(self, self.cast(other))
 
     def ule(self, other):
+        """Unsigned less than or equal
+        """
         return UnsignedLessOrEqual(self, self.cast(other))
 
     def udiv(self, other):
+        """Unsigned division
+        """
         return BitVecUnsignedDiv(self, self.cast(other))
 
     def rudiv(self, other):
+        """ 'Reverse' unsigned division
+        Invert the normal order of operands and perform unsigned division.
+        """
         return BitVecUnsignedDiv(self.cast(other), self)
 
     def srem(self, other):
+        """ Signed remainder
+        """
         return BitVecRem(self, self.cast(other))
 
     def rsrem(self, other):
+        """ 'Reverse' signed remainder
+        Invert the normal order of operands and perform the signed remainder operation.
+        """
         return BitVecRem(self.cast(other), self)
 
     def urem(self, other):
+        """ Unsigned remainder
+        """
         return BitVecUnsignedRem(self, self.cast(other))
 
     def rurem(self, other):
+        """ 'Reverse' unsigned remainder
+        """
         return BitVecUnsignedRem(self.cast(other), self)
 
     def sar(self, other):
+        """ Signed arithmetic shift right
+        """
         return BitVecArithmeticShiftRight(self, self.cast(other))
 
     def sal(self, other):
+        """ Signed arithmetic shift left
+        """
         return BitVecArithmeticShiftLeft(self, self.cast(other))
 
     def Bool(self):
+        """ Convert to Bool
+        """
         return self != 0
 
 
@@ -560,6 +604,11 @@ class UnsignedGreaterOrEqual(BoolOperation):
 ###############################################################################
 # Array  BV32 -> BV8  or BV64 -> BV8
 class Array(Expression):
+    """ Symbolic array.
+    Typically used to represent memory by mapping addresses to bytes
+    (BV32 -> BV8  or BV64 -> BV8)
+
+    """
     def __init__(self, index_bits, index_max, value_bits, *operands, **kwargs):
         assert index_bits in (32, 64, 256)
         assert value_bits in (8, 16, 32, 64, 256)
@@ -584,7 +633,10 @@ class Array(Expression):
 
     def _fix_index(self, index):
         """
-        :param slice index:
+        Check index and provide default values if needed
+        :param index: index to check
+        :type index: slice
+        :rtype:  tuple[int, int]
         """
         stop, start = index.stop, index.start
         if start is None:
@@ -594,6 +646,15 @@ class Array(Expression):
         return start, stop
 
     def cast(self, possible_array):
+        """
+        Convert possible_array into an :obj:`ArrayVariable` object
+
+        :param possible_array:
+        :type possible_array: bytearray
+        :rtype: :obj:`ArrayVariable`
+
+        """
+
         if isinstance(possible_array, bytearray):
             # FIXME This should be related to a constrainSet
             arr = ArrayVariable(self.index_bits, len(possible_array), 8)
@@ -603,6 +664,12 @@ class Array(Expression):
         raise ValueError  # cast not implemented
 
     def cast_index(self, index):
+        """Cast index to array index type
+
+        :param index: quantity to cast
+        :type index: int or :obj:`BitVec`
+        :rtype: :obj:`BitVec`
+        """
         if isinstance(index, int):
             #assert self.index_max is None or index >= 0 and index < self.index_max
             return BitVecConstant(self.index_bits, index)
@@ -610,6 +677,13 @@ class Array(Expression):
         return index
 
     def cast_value(self, value):
+        """Cast value to array element type
+
+        :param index: quantity to cast
+        :type index: int or :obj:`BitVec`
+        :rtype: :obj:`BitVec`
+        """
+
         if isinstance(value, str) and len(value) == 1:
             value = ord(value)
         if isinstance(value, int):
@@ -635,13 +709,39 @@ class Array(Expression):
         return self._index_max
 
     def select(self, index):
+        """Generate array select expression
+        Generate an ArraySelect expression representing an array access at `index`
+        :param index: index to access
+        :type index: int or :obj:`BitVec:`
+        :rtype: :obj:`ArraySelect`
+        """
         index = self.cast_index(index)
         return ArraySelect(self, index)
 
     def store(self, index, value):
+        """Generate  array store expression
+        Generate an ArrayStore expression representing an array store at `index`
+        :param index: index to access
+        :type index: int or :obj:`BitVec:`
+        :rtype: :obj:`ArrayStore`
+        """
+
         return ArrayStore(self, self.cast_index(index), self.cast_value(value))
 
     def write(self, offset, buf):
+        """Generate array write expression
+
+        Generate an ArrayStore expression representing a linear write into memory at `offset` with the contents of `buf`
+
+        :param offset: index to access
+        :type offset: int or :obj:`BitVec:`
+
+        :param buf: values to write to memory
+        :type buf: list[int or Expression]
+
+        :rtype: :obj:`ArrayStore`
+        """
+
         if not isinstance(buf, (Array, bytearray)):
             raise TypeError('Array or bytearray expected got {:s}'.format(type(buf)))
         arr = self
@@ -650,6 +750,16 @@ class Array(Expression):
         return arr
 
     def read(self, offset, size):
+        """Generate  array read expression
+
+        :param offset: index to access
+        :type offset: int or :obj:`BitVec:`
+
+        :param size: size of memory to read out
+        :type size: int or :obj:`Expression`
+
+        :rtype: :obj:`ArraySlice`
+        """
         return ArraySlice(self, offset, size)
 
     def __getitem__(self, index):
@@ -690,12 +800,37 @@ class Array(Expression):
         return array
 
     def read_BE(self, address, size):
+        """Generate big endian read expression
+
+        This expression represents the result of a read from memory at `address` in big endian format.
+
+        :param address: address to access
+        :type address: int or :obj:`Expression`
+
+        :param size: size of memory to read out
+        :type size: int or :obj:`Expression`
+
+        :rtype: :obj:`BitVecConcat`
+        """
         bytes = []
         for offset in range(size):
             bytes.append(self.get(address + offset, 0))
         return BitVecConcat(size * self.value_bits, *bytes)
 
     def read_LE(self, address, size):
+        """Generate little endian read expression
+
+        This expression represents the result of a read from memory at `address` in little endian format.
+
+        :param address: address to access
+        :type address: int or :obj:`Expression`
+
+        :param size: size of memory to read out
+        :type size: int or :obj:`Expression`
+
+        :rtype: :obj:`BitVecConcat`
+        """
+
         address = self.cast_index(address)
         bytes = []
         for offset in range(size):
@@ -703,6 +838,22 @@ class Array(Expression):
         return BitVecConcat(size * self.value_bits, *reversed(bytes))
 
     def write_BE(self, address, value, size):
+        """Generate big endian write expression
+
+        This expression represents the state of memory after writing `value` to `address` in big endian format.
+
+        :param address: address to write
+        :type address: int or :obj:`Expression`
+
+        :param value: value to write
+        :type value: int or :obj:`Expression`
+
+        :param size: size of value
+        :type size: int or :obj:`Expression`
+
+        :rtype: :obj:`Array`
+        """
+
         address = self.cast_index(address)
         value = BitVec(size * self.value_bits).cast(value)
         array = self
@@ -711,6 +862,21 @@ class Array(Expression):
         return array
 
     def write_LE(self, address, value, size):
+        """Generate little endian write expression
+
+        This expression represents the state of memory after writing `value` to `address` in little endian format.
+
+        :param address: address to write
+        :type address: int or :obj:`Expression`
+
+        :param value: value to write
+        :type value: int or :obj:`Expression`
+
+        :param size: size of value
+        :type size: int or :obj:`Expression`
+
+        :rtype: :obj:`Array`
+        """
         address = self.cast_index(address)
         value = BitVec(size * self.value_bits).cast(value)
         array = self
@@ -890,6 +1056,15 @@ class ArrayProxy(Array):
         return self._array.taint
 
     def select(self, index):
+        """ Array Select
+
+        Get the array element located at `index`. This interface also has a cacheing mechanism in the event that index is a :obj:`Constant`.
+
+        :param index: Array index to access
+        :type index: int or :obj:`Expression`
+
+        :rtype: :obj:`Expression`
+        """
         index = self.cast_index(index)
         if self.index_max is not None:
             from manticore.core.smtlib.visitors import simplify
@@ -901,6 +1076,19 @@ class ArrayProxy(Array):
         return self._array.select(index)
 
     def store(self, index, value):
+        """ Array Store
+
+        Store into the array `value` at the position indicated by `index`
+
+        :param index: Array index to store at
+        :type index: int or :obj:`Expression`
+
+        :param value: Quantity to store in the array
+        :type value: int or :obj:`Expression`
+
+        :rtype: :obj:`Expression`
+        """
+
         if not isinstance(index, Expression):
             index = self.cast_index(index)
         if not isinstance(value, Expression):
@@ -987,6 +1175,8 @@ class ArrayProxy(Array):
 
 
 class ArraySelect(BitVec, Operation):
+    """ Expression representing array access
+    """
     def __init__(self, array, index, *args, **kwargs):
         assert isinstance(array, Array)
         assert isinstance(index, BitVec) and index.size == array.index_bits
@@ -1002,6 +1192,8 @@ class ArraySelect(BitVec, Operation):
 
 
 class BitVecSignExtend(BitVecOperation):
+    """ Expression representing sign extension
+    """
     def __init__(self, operand, size_dest, *args, **kwargs):
         assert isinstance(operand, BitVec)
         assert isinstance(size_dest, int)
@@ -1011,6 +1203,8 @@ class BitVecSignExtend(BitVecOperation):
 
 
 class BitVecZeroExtend(BitVecOperation):
+    """ Expression representing zero extension
+    """
     def __init__(self, size_dest, operand, *args, **kwargs):
         assert isinstance(operand, BitVec)
         assert isinstance(size_dest, int)
@@ -1020,6 +1214,9 @@ class BitVecZeroExtend(BitVecOperation):
 
 
 class BitVecExtract(BitVecOperation):
+    """ Expression representing bit extraction
+    """
+
     def __init__(self, operand, offset, size, *args, **kwargs):
         assert isinstance(offset, int)
         assert isinstance(size, int)
@@ -1030,6 +1227,9 @@ class BitVecExtract(BitVecOperation):
 
 
 class BitVecConcat(BitVecOperation):
+    """ Expression representing concatenation
+    """
+
     def __init__(self, size_dest, *operands, **kwargs):
         assert isinstance(size_dest, int)
         assert all(isinstance(x, BitVec) for x in operands)
@@ -1038,6 +1238,9 @@ class BitVecConcat(BitVecOperation):
 
 
 class BitVecITE(BitVecOperation):
+    """ Expression representing if-than-else
+    """
+
     def __init__(self, size, condition, true_value, false_value, *args, **kwargs):
         assert isinstance(true_value, BitVec)
         assert isinstance(false_value, BitVec)

@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class Detector(Plugin):
+    """ Detector baseclass
+    Inherited by other detector plugins.
+    """
     @property
     def name(self):
         return self.__class__.__name__.split('.')[-1]
@@ -107,12 +110,16 @@ class DetectEnvInstruction(Detector):
 
 
 class DetectSelfdestruct(Detector):
+    """ Detects self destructing contracts
+    """
     def will_evm_execute_instruction_callback(self, state, instruction, arguments):
         if instruction.semantics == 'SELFDESTRUCT':
             self.add_finding_here(state, 'Reachable SELFDESTRUCT')
 
 
 class DetectExternalCallAndLeak(Detector):
+    """ Detect loss of value resulting from external call
+    """
     def will_evm_execute_instruction_callback(self, state, instruction, arguments):
         if instruction.semantics == 'CALL':
             dest_address = arguments[1]
@@ -506,8 +513,11 @@ class DetectDelegatecall(Detector):
     '''
         Detects DELEGATECALLs to controlled addresses and or with controlled function id.
         This detector finds and reports on any delegatecall instruction any the following propositions are hold:
-            * the destination address can be controlled by the caller
-            * the first 4 bytes of the calldata are controlled by the caller
+
+        * the destination address can be controlled by the caller
+
+        * the first 4 bytes of the calldata are controlled by the caller
+
     '''
 
     def will_evm_execute_instruction_callback(self, state, instruction, arguments):

@@ -264,6 +264,7 @@ class Executor(Eventful):
         return state_id
 
     def load_workspace(self):
+
         # Browse and load states in a workspace in case we are trying to
         # continue from paused run
         loaded_state_ids = self._workspace.try_loading_workspace()
@@ -363,7 +364,7 @@ class Executor(Eventful):
         Using policy build a list of solutions for expression.
         For the state on each solution setting the new state with setstate
 
-        For example if expression is a Bool it may have 2 solutions. True or False.
+        For example if expression is a Bool it may have 2 solutions. True or False.::
 
                                  Parent
                             (expression = ??)

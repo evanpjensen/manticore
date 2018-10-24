@@ -113,10 +113,9 @@ def t_newline(t):
 # A string containing ignored characters (spaces and tabs)
 t_ignore = ' \t'
 
-# Error handling rule
-
 
 def t_error(t):
+    """Error handling rule"""
     print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
 
@@ -146,6 +145,7 @@ def default_read_register(reg):
 
 
 def default_get_descriptor(selector):
+    """ Get representation of a default segment descriptor for x86 systems """
     return (0, 0xfffff000, 'rwx')
 
 
@@ -295,8 +295,9 @@ def p_expression_ge(p):
     p[0] = Operators.UGE(p[1], p[3])
 
 
-# Error rule for syntax errors
+
 def p_error(p):
+    """Error rule for syntax errors"""
     print("Syntax error in input:", p)
 
 # Build the parser

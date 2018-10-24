@@ -78,6 +78,15 @@ class CapstoneDisasm(Disasm):
 
 
 def init_disassembler(disassembler, arch, mode, view=None):
+    """Initialize disassembler engine
+
+    :param disassembler: Name of disassembler to use
+    :type disassembler: str
+    :param arch: capstone constant indicating target architecture
+    :type arch: int
+    :param mode: capstone constant indicating disassembler mode
+    :type mode: int
+    """
     if disassembler == "capstone":
         return CapstoneDisasm(arch, mode)
     else:

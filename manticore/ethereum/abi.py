@@ -166,6 +166,11 @@ class ABI(object):
     def function_selector(method_name_and_signature):
         """
         Makes a function hash id from a method signature
+
+        :param method_name_and_signature: Method name and signature
+        :type method_name_and_signature: str
+        :return: 4 byte method signature
+        :rtype: bytes
         """
         s = sha3.keccak_256()
         s.update(method_name_and_signature.encode())
@@ -173,6 +178,21 @@ class ABI(object):
 
     @staticmethod
     def deserialize(type_spec, data):
+        """ Deserialize EVM arguments
+
+        Performs the inverse operation of :meth:`serialize`
+        Given a type specification, break evm call data into it's constituant parts.
+
+        ex::
+            evm_type='(int,int256)'
+            arg1=0x4141
+            arg2=0x4242
+            serialized=ABI.serialize(evm_type, arg1, arg2)
+            #serialized == bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00AA\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BB')
+            deserialized = ABI.deserialize(evm_type,serialized)
+            assert((arg1,arg2)==deserialized)
+
+        """
         try:
             if isinstance(data, str):
                 data = bytearray(data.encode())

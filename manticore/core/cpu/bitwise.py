@@ -34,7 +34,7 @@ def GetNBits(value, nbits):
     :type value: int or long or BitVec
     :param int nbits: How many bits to extract
     :return: Low `nbits` bits of `value`.
-    :rtype int or long or BitVec
+    :rtype: int or long or BitVec
     '''
     # NOP if sizes are the same
     if isinstance(value, int):
@@ -55,7 +55,7 @@ def SInt(value, width):
     :type value: int or long or BitVec
     :param int width: The width of the bitstring to consider
     :return: The converted value
-    :rtype int or long or BitVec
+    :rtype: int or long or BitVec
     '''
     return Operators.ITEBV(width, Bit(value, width - 1) == 1,
                            GetNBits(value, width) - 2**width,
@@ -70,7 +70,7 @@ def UInt(value, width):
     :type value: int or long or BitVec
     :param int width: The width of the bitstring to consider
     :return: The integer value
-    :rtype int or long or BitVec
+    :rtype: int or long or BitVec
     '''
     return GetNBits(value, width)
 
@@ -84,7 +84,7 @@ def LSL_C(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value and the carry result
-    :rtype tuple
+    :rtype: tuple
     '''
     assert amount > 0
     value = Operators.ZEXTEND(value, width * 2)
@@ -103,7 +103,7 @@ def LSL(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value
-    :rtype int or BitVec
+    :rtype: int or BitVec
     '''
     if amount == 0:
         return value
@@ -121,7 +121,7 @@ def LSR_C(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value and carry result
-    :rtype tuple
+    :rtype: tuple
     '''
     assert amount > 0
     result = GetNBits(value >> amount, width)
@@ -138,7 +138,7 @@ def LSR(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value
-    :rtype int or BitVec
+    :rtype: int or BitVec
     '''
     if amount == 0:
         return value
@@ -155,7 +155,7 @@ def ASR_C(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value and carry result
-    :rtype tuple
+    :rtype: tuple
     '''
     assert amount <= width
     assert amount > 0
@@ -175,7 +175,7 @@ def ASR(value, amount, width):
     :param int amount: How many bits to shift it.
     :param int width: Width of the value
     :return: Resultant value
-    :rtype int or BitVec
+    :rtype: int or BitVec
     '''
     if amount == 0:
         return value
@@ -193,7 +193,7 @@ def ROR_C(value, amount, width):
     :param int amount: How many bits to rotate it.
     :param int width: Width of the value
     :return: Resultant value and carry result
-    :rtype tuple
+    :rtype: tuple
     '''
     assert amount <= width
     assert amount > 0
@@ -214,7 +214,7 @@ def ROR(value, amount, width):
     :param int amount: How many bits to rotate it.
     :param int width: Width of the value
     :return: Resultant value
-    :rtype int or BitVec
+    :rtype: int or BitVec
     '''
     if amount == 0:
         return value
@@ -231,7 +231,7 @@ def RRX_C(value, carry, width):
     :param int amount: How many bits to rotate it.
     :param int width: Width of the value
     :return: Resultant value and carry result
-    :rtype tuple
+    :rtype: tuple
     '''
     carry_out = Bit(value, 0)
     result = (value >> 1) | (carry << (width - 1))
@@ -247,7 +247,7 @@ def RRX(value, carry, width):
     :param int amount: How many bits to rotate it.
     :param int width: Width of the value
     :return: Resultant value
-    :rtype int or BitVec
+    :rtype: int or BitVec
     '''
     result, _ = RRX_C(value, carry, width)
     return result

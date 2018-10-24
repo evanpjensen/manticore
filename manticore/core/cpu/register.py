@@ -12,14 +12,31 @@ class Register(object):
         self.value = 0
 
     def is_flag(self):
+        """ Determine if flag
+        Determine if this is a flag as opposed to a general purpose register or other type of register.
+
+        :rtype: bool
+
+        """
         return self.width == 1
 
     def read(self):
+        """Get register value
+
+        :rtype: bool or int or Expression
+        """
         return self.value
 
     def write(self, val):
+        """Update register value
+
+        :param val: value to assign register
+        :type val: bool or int or Expression
+
+        :rtype: None
+        """
         if isinstance(val, (Bool, bool)):
-            self.value = val
+            self.value = vald
         elif isinstance(val, BitVec):
             self.value = val.Bool() if self.is_flag() else val
         elif isinstance(val, int):

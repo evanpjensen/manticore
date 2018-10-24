@@ -9,12 +9,18 @@ HashesEntry = namedtuple('HashesEntry', 'signature func_id')
 
 
 class EVMAccount(object):
+    """ Representation of an Ethereum account
+    """
     def __init__(self, address=None, manticore=None, name=None):
         """ Encapsulates an account.
 
             :param address: the address of this account
             :type address: 160 bit long integer
             :param manticore: the controlling Manticore
+            :type manticore: :obj:`Manticore`
+            :param manticore: Human friendly name for this account
+            :type manticore: str
+
 
         """
         self._manticore = manticore
@@ -44,7 +50,7 @@ class EVMAccount(object):
 
 
 class EVMContract(EVMAccount):
-    """ An EVM account
+    """ An EVM contract account
 
         Note: The private methods of this class begin with a double underscore to
         avoid function name collisions with Solidity functions that begin with
@@ -61,6 +67,15 @@ class EVMContract(EVMAccount):
         self._hashes = None
 
     def add_function(self, signature):
+        """ Register a function
+
+        Register a function with this contract. This makes the function callable. 
+
+        :param signature: function signature ex: `baz(uint32,bool)`
+        :type signature: str
+        :rtype: None
+        """
+
         func_id = ABI.function_selector(signature)
         func_name = str(signature.split('(')[0])
         if func_name.startswith('__') or func_name in {'add_function', 'address', 'name'}:

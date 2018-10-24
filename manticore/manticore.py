@@ -36,6 +36,17 @@ log.init_logging()
 
 
 def make_decree(program, concrete_start='', **kwargs):
+    """ Create a Decree state object
+
+    Create and initialize a state object representing a Decree program.
+
+    :param program: Pathname of program to execute
+    :type program: str
+
+    :param concrete_start: Initial concrete input to give the program.
+    :type concrete_start: str [Default='']
+
+    """
     constraints = ConstraintSet()
     platform = decree.SDecree(constraints, program)
     initial_state = State(constraints, platform)
@@ -49,6 +60,22 @@ def make_decree(program, concrete_start='', **kwargs):
 
 
 def make_linux(program, argv=None, env=None, entry_symbol=None, symbolic_files=None, concrete_start=''):
+    """
+
+    :param program: Program path to construct a state object with
+    :type program: str
+    :param argv: Command line arguments
+    :type argv: list[str] [Default=None]
+    :param env: Environmental variables
+    :type env: dict[str,str] [Default=None]
+    :param entry_symbol: Symbol to begin executing instead of the entry point given in the elf header
+    :type entry_symbol: str
+    :param symbolic_files: List of files to treat as symbolic at run time
+    :type symbolic_files: list[str]
+    :param concrete_start: Concrete command line input to give program at start
+    :type concrete_start: str [Default='']
+    :rtype: :obj:`State`
+    """
     env = {} if env is None else env
     argv = [] if argv is None else argv
     env = ['%s=%s' % (k, v) for k, v in env.items()]
@@ -93,6 +120,17 @@ def make_linux(program, argv=None, env=None, entry_symbol=None, symbolic_files=N
 
 
 def make_initial_state(binary_path, **kwargs):
+    """ Make a state object
+
+    Create and initialize a state object from a file path. Uses the 'magic number' of the program to initialize the correct state object. Supports Linux and Decree programs.
+
+    :param binary_path: Path of the program to create a state object with.
+    :type binary_path: str
+    :param kwargs: Named arguments for :func:`make_linux` or :func:`make_decree`
+    :type kwargs: dict[str,str]
+    :rtype: :obj:`State`
+
+    """
     with open(binary_path, 'rb') as f:
         magic = f.read(4)
     if magic == b'\x7fELF':

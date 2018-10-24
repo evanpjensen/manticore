@@ -402,7 +402,7 @@ class Decree(Platform):
            the allocation in bytes which will be rounded up to the hardware page size.
 
            The kernel chooses the address at which to create the allocation; the
-           address of the new allocation is returned in *addr as the result of the call.
+           address of the new allocation is returned in ``*addr`` as the result of the call.
 
            All newly allocated memory is readable and writeable. In addition, the
            is_X argument is a boolean that allows newly allocated memory to be marked
@@ -413,16 +413,15 @@ class Decree(Platform):
            :param cpu: current CPU
            :param length: the length of the allocation in bytes
            :param isX: boolean that allows newly allocated memory to be marked as executable
-           :param addr: the address of the new allocation is returned in *addr
+           :param addr: the address of the new allocation is returned in ``*addr``
 
-           :return: On success, allocate returns zero and a pointer to the allocated area
-                               is returned in *addr.  Otherwise, an error code is returned
-                               and *addr is undefined.
-                   EINVAL   length is zero.
-                   EINVAL   length is too large.
-                   EFAULT   addr points to an invalid address.
-                   ENOMEM   No memory is available or the process' maximum number of allocations
-                            would have been exceeded.
+           :return: On success, allocate returns zero and a pointer to the allocated area is returned in ``*addr``.  Otherwise, an error code is returned and ``*addr`` is undefined.
+
+           EINVAL   length is zero.
+           EINVAL   length is too large.
+           EFAULT   addr points to an invalid address.
+           ENOMEM   No memory is available or the process' maximum number of allocations would have been exceeded.
+
         '''
         # TODO: check 4 bytes from addr
         if addr not in cpu.memory:
@@ -441,20 +440,20 @@ class Decree(Platform):
         return 0
 
     def sys_random(self, cpu, buf, count, rnd_bytes):
-        ''' random - fill a buffer with random data
+        '''random - fill a buffer with random data
 
-           The  random  system call populates the buffer referenced by buf with up to
-           count bytes of random data. If count is zero, random returns 0 and optionally
-           sets *rx_bytes to zero. If count is greater than SSIZE_MAX, the result is unspecified.
+        The  random  system call populates the buffer referenced by buf with up to
+        count bytes of random data. If count is zero, random returns 0 and optionally
+        sets ``*rx_bytes`` to zero. If count is greater than SSIZE_MAX, the result is unspecified.
 
-           :param cpu: current CPU
-           :param buf: a memory buffer
-           :param count: max number of bytes to receive
-           :param rnd_bytes: if valid, points to the actual number of random bytes
+        :param cpu: current CPU
+        :param buf: a memory buffer
+        :param count: max number of bytes to receive
+        :param rnd_bytes: if valid, points to the actual number of random bytes
 
-           :return:  0        On success
-                     EINVAL   count is invalid.
-                     EFAULT   buf or rnd_bytes points to an invalid address.
+        :return:  0        On success
+                 EINVAL   count is invalid.
+                 EFAULT   buf or rnd_bytes points to an invalid address.
         '''
 
         ret = 0
@@ -486,7 +485,7 @@ class Decree(Platform):
 
             The receive system call reads up to count bytes from file descriptor fd to the
             buffer pointed to by buf. If count is zero, receive returns 0 and optionally
-            sets *rx_bytes to zero.
+            sets ``*rx_bytes`` to zero.
 
             :param cpu: current CPU.
             :param fd: a valid file descriptor
@@ -537,19 +536,19 @@ class Decree(Platform):
         return 0
 
     def sys_transmit(self, cpu, fd, buf, count, tx_bytes):
-        ''' transmit - send bytes through a file descriptor
-          The  transmit system call writes up to count bytes from the buffer pointed
-          to by buf to the file descriptor fd. If count is zero, transmit returns 0
-          and optionally sets *tx_bytes to zero.
+        ''' transmit ``-`` send bytes through a file descriptor
+        The  transmit system call writes up to count bytes from the buffer pointed
+        to by buf to the file descriptor fd. If count is zero, transmit returns 0
+        and optionally sets ``*tx_bytes`` to zero.
 
-          :param cpu           current CPU
-          :param fd            a valid file descriptor
-          :param buf           a memory buffer
-          :param count         number of bytes to send
-          :param tx_bytes      if valid, points to the actual number of bytes transmitted
-          :return: 0            Success
-                   EBADF        fd is not a valid file descriptor or is not open.
-                   EFAULT       buf or tx_bytes points to an invalid address.
+        :param cpu           current CPU
+        :param fd            a valid file descriptor
+        :param buf           a memory buffer
+        :param count         number of bytes to send
+        :param tx_bytes      if valid, points to the actual number of bytes transmitted
+        :return: 0            Success
+        EBADF        fd is not a valid file descriptor or is not open.
+        EFAULT       buf or tx_bytes points to an invalid address.
         '''
         data = []
         if count != 0:
@@ -593,6 +592,8 @@ class Decree(Platform):
         '''
         Exits all threads in a process
         :param cpu: current CPU.
+        :param error_code: Error code returned by process
+        :type error_code: int
         :raises Exception: 'Finished'
         '''
         procid = self.procs.index(cpu)
@@ -608,7 +609,7 @@ class Decree(Platform):
         return error_code
 
     def sys_deallocate(self, cpu, addr, size):
-        ''' deallocate - remove allocations
+        ''' deallocate ``-`` remove allocations
         The  deallocate  system call deletes the allocations for the specified
         address range, and causes further references to the addresses within the
         range to generate invalid memory accesses. The region is also
@@ -625,14 +626,14 @@ class Decree(Platform):
         :param cpu: current CPU
         :param addr: the starting address to unmap.
         :param size: the size of the portion to unmap.
-        :return 0        On success
-                EINVAL   addr is not page aligned.
-                EINVAL   length is zero.
-                EINVAL   any  part  of  the  region  being  deallocated  is outside the valid
-                         address range of the process.
+        :return: 0        On success
 
-        :param cpu: current CPU.
+        EINVAL   addr is not page aligned.
+        EINVAL   length is zero.
+        EINVAL   any  part  of  the  region  being  deallocated  is outside the valid address range of the process.
+
         :return: C{0} on success.
+
         '''
         logger.info("DEALLOCATE(0x%08x, %d)" % (addr, size))
 
@@ -909,9 +910,12 @@ class SDecree(Decree):
     def __init__(self, constraints, programs, symbolic_random=None):
         '''
         Builds a symbolic extension of a Decree OS
-        :param constraints: a constraint set
-        :param cpus: CPU for this platform
-        :param mem: memory for this platform
+        :param constraints: A constraint set
+        :type constraints: :class:`ConstraintSet`
+        :param programs: file paths to programs, seperated by ','
+        :type programs: str
+
+
         '''
         self.random = 0
         self._constraints = constraints

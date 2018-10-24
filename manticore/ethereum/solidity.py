@@ -5,8 +5,41 @@ from ..exceptions import EthereumError
 
 
 class SolidityMetadata(object):
+    """ Contract metadata for Solidity-based contracts
+
+
+    """
     def __init__(self, name, source_code, init_bytecode, runtime_bytecode, srcmap, srcmap_runtime, hashes, abi, warnings):
-        """ Contract metadata for Solidity-based contracts """
+        """
+
+        :param name: Name of contract
+        :type name: str
+
+        :param source_code: Source code of contract
+        :type source_code: str
+
+        :param init_bytecode:
+        :type init_bytecode:
+
+        :param runtime_bytecode:
+        :type runtime_bytecode:
+
+        :param srcmap:
+        :type srcmap:
+
+        :param srcmap_runtime:
+        :type srcmap_runtime:
+
+        :param hashes:
+        :type hashes: dict[str,str]
+
+        :param abi:
+        :type abi:
+
+        :param warnings:
+        :type warnings:
+
+        """
         self.name = name
         if isinstance(source_code, bytes):
             source_code = source_code.decode()

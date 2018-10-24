@@ -129,6 +129,8 @@ class State(Eventful):
         self.platform.constraints = self.constraints
 
     def execute(self):
+        """ Start symbolic execution
+        """
         try:
             result = self._platform.execute()
 
@@ -289,6 +291,15 @@ class State(Eventful):
         return solver
 
     def migrate_expression(self, expression):
+        """Migrate an expression created for a different constraint set to self.
+
+        Returns an expression that can be used with this constraintSet. Internally calls :meth:`manticore.core.smtlib.constraints.migrate`.
+
+
+        :param expression: Foreign expression to migrate
+        :type expression: :obj:`Expression`
+        :rtype: :obj:`Expression`
+        """
         if not issymbolic(expression):
             return expression
         migration_map = self.context.get('migration_map')
@@ -302,10 +313,28 @@ class State(Eventful):
         return self.can_be_true(True)
 
     def can_be_true(self, expr):
+        """ Check the truth of an expression
+
+        Factoring in the constraints, return if it is possible to have `expr` evaluate true.
+        :param expr: Expression to evaluate
+        :type expr: :obj:`Expression`
+        :rtype: bool
+
+        """
         expr = self.migrate_expression(expr)
         return self._solver.can_be_true(self._constraints, expr)
 
     def must_be_true(self, expr):
+        """ Require the truth of an expression
+
+        Factoring in the constraints, return if it is possible to have `expr` ever be false. This function returns true when it is impossible for `expr` to be false.
+
+        :param expr: Expression to evaluate
+        :type expr: :obj:`Expression`
+        :rtype: bool
+
+        """
+
         expr = self.migrate_expression(expr)
         return not self._solver.can_be_true(self._constraints, expr == False)
 

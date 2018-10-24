@@ -4,7 +4,13 @@ from elftools.elf.elffile import ELFFile
 
 
 class Binary:
+    """Baseclass for representing binary file formats
+    """
+
     magics = {}
+    """Dict of str: :obj:`Binary`
+    A mapping between "magic numbers" and binary representations.
+    """
 
     def __new__(cls, path):
         if cls is Binary:
@@ -14,16 +20,35 @@ class Binary:
             return super(Binary, cls).__new__(cls)
 
     def __init__(self, path):
+        """Binary Constructor
+            Args:
+                path (str): path of the file on the filesystem.
+
+        """
         self.path = path
+        """Path of the binary on the filesystem.
+        """
+
         self.magic = Binary.magics[open(path, 'rb').read(4)]
+        """The Binary's "magic number" """
 
     def arch(self):
         pass
 
     def maps(self):
+        """Representation of file sections
+
+        :return: generator yielding tuples representing (virtual_address, virtual_allocation_size, memory_permissions, section_name, section_disk_offset, section_file_size )
+        :rtype: generator[tuple[int, int, str, str, int, int]]
+        """
         pass
 
     def threads(self):
+        """Representation of thread execution at load time.
+
+        :return: generator of 2-tuples in the form (state,{register:value})
+        :rtype: generator[tuple[str, dict[str,int]]]
+        """
         pass
 
 
@@ -81,6 +106,7 @@ class Elf(Binary):
 
         # Get interpreter elf
         self.interpreter = None
+
         for elf_segment in self.elf.iter_segments():
             if elf_segment.header.p_type != 'PT_INTERP':
                 continue
@@ -109,6 +135,11 @@ class Elf(Binary):
                     elf_segment.stream.name, elf_segment.header.p_offset, elf_segment.header.p_filesz))
 
     def getInterpreter(self):
+        """Get the dynamic linker
+        Returns the dynamic linker(if it is specified) as an :obj:`Elf` object otherwise, return none.
+
+        :rtype: :obj:`Elf` or None
+        """
         return self.interpreter
 
     def threads(self):

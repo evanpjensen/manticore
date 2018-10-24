@@ -120,6 +120,8 @@ class Map(object, metaclass=ABCMeta):
         Sets the access permissions of the map.
 
         :param perms: the new permissions.
+        :type perms: str
+
         '''
         assert isinstance(perms, str) and len(perms) <= 3 and perms.strip() in ['', 'r', 'w', 'x', 'rw', 'r x', 'rx', 'rwx', 'wx', ]
         self._perms = perms
@@ -128,7 +130,12 @@ class Map(object, metaclass=ABCMeta):
     perms = property(_get_perms, _set_perms)
 
     def access_ok(self, access):
-        ''' Check if there is enough permissions for access '''
+        '''Check if there is enough permissions for access
+
+        :param access: string describing memory protections. Should be one of ['', 'r', 'w', 'x', 'rw', 'r x', 'rx', 'rwx', 'wx']
+        :type access: str
+        :rtype: bool
+        '''
         for c in access:
             if c not in self.perms:
                 return False
@@ -434,8 +441,8 @@ class COWMap(Map):
 
 
 class Memory(object, metaclass=ABCMeta):
-    '''
-    The memory manager.
+    '''The memory manager.
+
     This class handles all virtual memory mappings and symbolic chunks.
     '''
 
@@ -448,7 +455,10 @@ class Memory(object, metaclass=ABCMeta):
             self._maps = set()
         else:
             self._maps = set(maps)
-        self._page2map = WeakValueDictionary()  # {page -> ref{MAP}}
+        self._page2map = WeakValueDictionary()
+        """ Mapping from page number to :obj:`Map`
+        Use `map_containing` to access
+        """
         self._recording_stack = []
         for m in self._maps:
             for i in range(self._page(m.start), self._page(m.end)):
@@ -569,8 +579,11 @@ class Memory(object, metaclass=ABCMeta):
         :return: the starting address where the file was mapped.
         :rtype: int
         :raises error:
+
                    - 'Address shall be concrete' if C{addr} is not an integer number.
+
                    - 'Address too big' if C{addr} goes beyond the limit of the memory.
+
                    - 'Map already used' if the piece of memory starting in C{addr} and with length C{size} isn't free.
         '''
         # If addr is NULL, the system determines where to allocate the region.
@@ -613,11 +626,14 @@ class Memory(object, metaclass=ABCMeta):
         :param name: optional name to give to this mapping
         :return: the starting address where the memory was mapped.
         :raises error:
-                   - 'Address shall be concrete' if C{addr} is not an integer number.
-                   - 'Address too big' if C{addr} goes beyond the limit of the memory.
-                   - 'Map already used' if the piece of memory starting in C{addr} and with length C{size} isn't free.
-        :rtype: int
 
+            - 'Address shall be concrete' if C{addr} is not an integer number.
+
+            - 'Address too big' if C{addr} goes beyond the limit of the memory.
+
+            - 'Map already used' if the piece of memory starting in C{addr} and with length C{size} isn't free.
+
+        :rtype: int
         '''
         # If addr is NULL, the system determines where to allocate the region.
         assert addr is None or isinstance(addr, int), 'Address shall be concrete'
@@ -669,8 +685,9 @@ class Memory(object, metaclass=ABCMeta):
         '''
         Returns the L{MMap} object containing the address.
 
-        :param address: the address to obtain its mapping.
-        :rtype: L{MMap}
+        :param address: The address to obtain its mapping.
+        :type address: int
+        :rtype: :obj:`Map`
 
         @todo: symbolic address
         '''
@@ -701,8 +718,13 @@ class Memory(object, metaclass=ABCMeta):
         return '\n'.join(['%016x-%016x % 4s %08x %s' % (start, end, p, offset, name or '') for start, end, p, offset, name in self.mappings()])
 
     def _maps_in_range(self, start, end):
-        '''
+        '''Get maps in range
         Generates the list of maps that overlaps with the range [start:end]
+        :param start: start of range
+        :type start: int
+        :param end: end of range
+        :type end: int
+        :rtype: generator of :obj:`Map`
         '''
 
         # Search for the first matching map
@@ -740,6 +762,19 @@ class Memory(object, metaclass=ABCMeta):
         logger.debug('Unmap memory @%x size:%x', start, size)
 
     def mprotect(self, start, size, perms):
+        """ Memory Protect
+        Similar to the mprotect systemcall on Linux systems. Sets protection on a region of memory. No requirements for addresses or sizes to be alligned in any particular way.
+
+        :param start: Address on which to change permissions
+        :type start: int
+        :param size: Size of the region on which to change permissions
+        :type size: int
+        :param perms: String representing read/write/execute permissions
+        :type perms: str
+
+        :rtype: none
+
+        """
         assert size > 0
         start = self._floor(start)
         end = self._ceil(start + size)
@@ -764,6 +799,12 @@ class Memory(object, metaclass=ABCMeta):
         return self._page(address) in self._page2map
 
     def perms(self, index):
+        """ Get memory permissions at index
+        :param index: Address
+        :type index: int
+
+        :rtype: str
+        """
         # not happy with this interface.
         if isinstance(index, slice):
             # get the more restrictive set of perms for the range
@@ -772,6 +813,21 @@ class Memory(object, metaclass=ABCMeta):
             return self.map_containing(index).perms
 
     def access_ok(self, index, access, force=False):
+        """ Check access on memory
+
+        Check if you have the desired level of access to a memory address or range of memory addresses.
+
+        :param index: Memory address or range of memory addresses
+        :type index: slice or int
+        :param access: Desired level of access to memory
+        :type access: str
+        :param force: Optional value when true forces function to return true.  Will not change the underlying permissions of the memory. [default False]
+        :type force: bool
+
+
+        :rtype: bool
+        """
+
         if isinstance(index, slice):
             assert index.stop - index.start >= 0
             addr = index.start
@@ -795,6 +851,15 @@ class Memory(object, metaclass=ABCMeta):
 
     # write and read potentially symbolic bytes at symbolic indexes
     def read(self, addr, size, force=False):
+        """
+        :param addr: Address from which to read
+        :type addr: int
+        :param size: Number of bytes to read
+        :type size: int
+        :param force: Optional. Force the read even if the memory is not marked readable [Default False]
+        :type force: bool
+        :rtype: list of
+        """
         if not self.access_ok(slice(addr, addr + size), 'r', force):
             raise InvalidMemoryAccess(addr, 'r')
 
@@ -846,6 +911,16 @@ class Memory(object, metaclass=ABCMeta):
         return lst
 
     def write(self, addr, buf, force=False):
+        ''' Write values to address.
+
+        :param address: The address at which to write
+        :type address: int or long or Expression
+
+        :param buf: Bytes to write
+        :type buf: str or list
+        :param force: Whether to ignore permissions
+        '''
+
         size = len(buf)
         if not self.access_ok(slice(addr, addr + size), 'w', force):
             raise InvalidMemoryAccess(addr, 'w')
@@ -1015,8 +1090,8 @@ class SMemory(Memory):
             return list(map(Operators.CHR, result))
 
     def write(self, address, value, force=False):
-        '''
-        Write a value at address.
+        ''' Write a value at address.
+
         :param address: The address at which to write
         :type address: int or long or Expression
         :param value: Bytes to write

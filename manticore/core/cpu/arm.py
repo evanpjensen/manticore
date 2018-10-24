@@ -20,6 +20,11 @@ OP_NAME_MAP = {
 
 
 def HighBit(n):
+    """ Extract high bit from n
+    :param n: value to extract high bit from
+    :type n: int or long or :obj:`BitVec`
+    :rtype: int or long or :obj:`BitVec`
+    """
     return Bit(n, 31)
 
 
@@ -54,6 +59,11 @@ def instruction(body):
 
 
 class Armv7Operand(Operand):
+    """Representation of an Armv7 Operand
+
+    Armv7 operands can be a variety of "types" including registers, memory, immediate values, coprocessors and potentially others. This class allows for a consistent API across all operands.
+
+    """
     def __init__(self, cpu, op, **kwargs):
         super().__init__(cpu, op, **kwargs)
 
@@ -199,11 +209,10 @@ class Armv7Operand(Operand):
 
 
 class Armv7RegisterFile(RegisterFile):
+    """ARM Register file abstraction
+    GPRs use ints for read/write. APSR flags allow writes of bool/{1, 0} but always read bools.
+    """
     def __init__(self):
-        """
-        ARM Register file abstraction. GPRs use ints for read/write. APSR
-        flags allow writes of bool/{1, 0} but always read bools.
-        """
         super().__init__({'SB': 'R9',
                           'SL': 'R10',
                           'FP': 'R11',
@@ -433,6 +442,12 @@ class Armv7Cpu(Cpu):
         self._last_flags.update(flags)
 
     def commit_flags(self):
+        """Write flags to machine register file
+
+        Update the register file with the flags set by the most recently executed instruction.
+
+        :rtype: None
+        """
         # XXX: capstone incorrectly sets .update_flags for adc
         if self.instruction.mnemonic == 'adc':
             return
@@ -477,6 +492,14 @@ class Armv7Cpu(Cpu):
 
     # TODO add to abstract cpu, and potentially remove stacksub/add from it?
     def stack_push(self, data, nbytes=None):
+        """Write to stack and adjust stack pointer
+
+        :param data: Data to be written on the stack
+        :type data: int or BitVec or str
+        :param nbytes: Optional number of bytes to write [Default None]
+        :type nbytes: int
+        :rtype: list[int or Expression]
+        """
         if isinstance(data, int):
             nbytes = nbytes or self.address_bit_size // 8
             self.SP -= nbytes
@@ -492,9 +515,24 @@ class Armv7Cpu(Cpu):
         return self.SP
 
     def stack_peek(self, nbytes=4):
+        """Read forward from stack pointer
+
+        :param nbytes: Optional number of bytes to read [Default 4]
+        :type nbytes: int
+        :rtype: list[int or Expression]
+        """
+
+
         return self.read(self.SP, nbytes)
 
     def stack_pop(self, nbytes=4):
+        """Read from stack and adjust stack pointer
+
+        :param nbytes: Optional number of bytes to read [Default 4]
+        :type nbytes: int
+        :rtype: list[int or Expression]
+        """
+
         # TODO is the distinction between load and read really in the op size?
         nbits = nbytes * 8
         if nbits == self.address_bit_size:
@@ -505,12 +543,37 @@ class Armv7Cpu(Cpu):
         return val
 
     def read(self, addr, nbytes):
+        """read_bytes wrapper
+
+        :param addr: Address to read
+        :param nbytes: Number of bytes to read
+        :type addr: int
+        :type nbytes: int
+        :rtype: list[int or Expression]
+        """
+
         return self.read_bytes(addr, nbytes)
 
     def write(self, addr, data):
+        """write_bytes wrapper
+
+        Write into memory with a byte string representation
+
+        :param addr: Address to read
+        :param data:
+        :type addr: int
+        :type data: str or list[Expression] where expressions are 8 bits
+        :rtype: None
+        """
+
         return self.write_bytes(addr, data)
 
     def set_arm_tls(self, data):
+        """Update Thread Local Storage pointer
+
+        :param data:
+        :type addr: int
+        """
         self.regfile.write('P15_C13', data)
 
     @staticmethod
@@ -530,6 +593,11 @@ class Armv7Cpu(Cpu):
         return [Armv7Operand(self, op) for op in ops]
 
     def should_commit_flags(cpu):
+        """ Check if flags should be committed
+
+        :returns: true if flags should be updated
+        :rtype: bool
+        """
         # workaround for a capstone bug (issue #980);
         # the bug has been fixed the 'master' and 'next' branches of capstone as of 2017-07-31
         if cpu.instruction.id == cs.arm.ARM_INS_UADD8:
@@ -538,8 +606,13 @@ class Armv7Cpu(Cpu):
         return cpu.instruction.update_flags
 
     def should_execute_conditional(cpu):
-        # for the IT instruction, the cc applies to the subsequent instructions,
-        # so the IT instruction should be executed regardless of its cc
+        """ Check conditional execution corner cases
+
+        for the IT instruction, the cc applies to the subsequent instructions,
+        so the IT instruction should be executed regardless of its cc
+
+        :rtype: bool
+        """
         if cpu.instruction.id == cs.arm.ARM_INS_IT:
             return True
 
@@ -593,6 +666,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def IT(cpu):
+        """If-Then"""
         cc = cpu.instruction.cc
         true_case = cpu._evaluate_conditional(cc)
         # this is incredibly hacky--how else does capstone expose this?
@@ -605,6 +679,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def UADD8(cpu, dest, src, op):
+        """Unsigned Add 8-bit integers"""
         op1 = src.read()
         op2 = op.read()
         sums = list()
@@ -621,6 +696,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def SEL(cpu, dest, op1, op2):
+        """Select bytes from each operand according to the state of the APSR GE flags"""
         op1val = op1.read()
         op2val = op2.read()
         result = list()
@@ -725,12 +801,10 @@ class Armv7Cpu(Cpu):
     def LDREX(cpu, dest, src, offset=None):
         """
         LDREX loads data from memory.
-        * If the physical address has the shared TLB attribute, LDREX
-          tags the physical address as exclusive access for the current
-          processor, and clears any exclusive access tag for this
-          processor for any other physical address.
-        * Otherwise, it tags the fact that the executing processor has
-          an outstanding tagged physical address.
+
+        * If the physical address has the shared TLB attribute, LDREX tags the physical address as exclusive access for the current processor, and clears any exclusive access tag for this processor for any other physical address.
+
+        * Otherwise, it tags the fact that the executing processor has an outstanding tagged physical address.
 
         :param Armv7Operand dest: the destination register; register
         :param Armv7Operand src: the source operand: register
@@ -807,14 +881,17 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def STR(cpu, *args):
+        """Store Register"""
         return cpu._STR(cpu.address_bit_size, *args)
 
     @instruction
     def STRB(cpu, *args):
+        """Store Register unsigned byte"""
         return cpu._STR(8, *args)
 
     @instruction
     def STRH(cpu, *args):
+        """Store Register unsigned halfword"""
         return cpu._STR(16, *args)
 
     def _LDR(cpu, dest, src, width, is_signed, offset):
@@ -833,22 +910,27 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def LDR(cpu, dest, src, offset=None):
+        """Load Register"""
         cpu._LDR(dest, src, 32, False, offset)
 
     @instruction
     def LDRH(cpu, dest, src, offset=None):
+        """Load register halfword """
         cpu._LDR(dest, src, 16, False, offset)
 
     @instruction
     def LDRSH(cpu, dest, src, offset=None):
+        """Load register signed halfword"""
         cpu._LDR(dest, src, 16, True, offset)
 
     @instruction
     def LDRB(cpu, dest, src, offset=None):
+        """Load register byte"""
         cpu._LDR(dest, src, 8, False, offset)
 
     @instruction
     def LDRSB(cpu, dest, src, offset=None):
+        """Load register signed byte"""
         cpu._LDR(dest, src, 8, True, offset)
 
     def _ADD(cpu, _op1, _op2, carry=0):
@@ -880,6 +962,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def ADC(cpu, dest, op1, op2=None):
+        """Add with Carry"""
         carry = cpu.regfile.read('APSR_C')
         if op2 is not None:
             result, carry, overflow = cpu._ADD(op1.read(), op2.read(), carry)
@@ -890,6 +973,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def ADD(cpu, dest, src, add=None):
+        """Add"""
         if add is not None:
             result, carry, overflow = cpu._ADD(src.read(), add.read())
         else:
@@ -900,6 +984,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def RSB(cpu, dest, src, add):
+        """Reverse Subtract"""
         inv_src = GetNBits(~src.read(), cpu.address_bit_size)
         result, carry, overflow = cpu._ADD(inv_src, add.read(), 1)
         dest.write(result)
@@ -907,6 +992,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def RSC(cpu, dest, src, add):
+        """Reverse Subtract with Carry"""
         carry = cpu.regfile.read('APSR_C')
         inv_src = GetNBits(~src.read(), cpu.address_bit_size)
         result, carry, overflow = cpu._ADD(inv_src, add.read(), carry)
@@ -915,6 +1001,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def SUB(cpu, dest, src, add=None):
+        """Subtract"""
         if add is not None:
             result, carry, overflow = cpu._ADD(src.read(), ~add.read(), 1)
         else:
@@ -926,6 +1013,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def SBC(cpu, dest, op1, op2=None):
+        """Subtract with Carry"""
         carry = cpu.regfile.read('APSR_C')
         if op2 is not None:
             result, carry, overflow = cpu._ADD(op1.read(), ~op2.read(), carry)
@@ -936,16 +1024,19 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def B(cpu, dest):
+        """Branch"""
         cpu.PC = dest.read()
 
     @instruction
     def BX(cpu, dest):
+        """Branch and exchange instruction set"""
         dest_val = dest.read()
         cpu._set_mode_by_val(dest_val)
         cpu.PC = dest_val & ~1
 
     @instruction
     def BLE(cpu, dest):
+        """ Branch if less-than or equal"""
         cpu.PC = Operators.ITEBV(cpu.address_bit_size,
                                  cpu.regfile.read('APSR_Z'),
                                  dest.read(),
@@ -953,11 +1044,13 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def CBNZ(cpu, op, dest):
+        """Compare and Branch on Non-Zero"""
         cpu.PC = Operators.ITEBV(cpu.address_bit_size,
                                  op.read(), dest.read(), cpu.PC)
 
     @instruction
     def BL(cpu, label):
+        """Branch and Link"""
         next_instr_addr = cpu.regfile.read('PC')
         if cpu.mode == cs.CS_MODE_THUMB:
             cpu.regfile.write('LR', next_instr_addr + 1)
@@ -967,6 +1060,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def BLX(cpu, dest):
+        """Branch with link, and exchange instruction set"""
         address = cpu.PC
         target = dest.read()
         next_instr_addr = cpu.regfile.read('PC')
@@ -986,11 +1080,13 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def CMP(cpu, reg, compare):
+        """Compare"""
         notcmp = ~compare.read() & Mask(cpu.address_bit_size)
         cpu._ADD(reg.read(), notcmp, 1)
 
     @instruction
     def POP(cpu, *regs):
+        """Pop"""
         for reg in regs:
             val = cpu.stack_pop(cpu.address_bit_size // 8)
             if reg.reg in ('PC', 'R15'):
@@ -1000,13 +1096,14 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def PUSH(cpu, *regs):
+        """Push"""
         high_to_low_regs = [r.read() for r in regs[::-1]]
         for reg in high_to_low_regs:
             cpu.stack_push(reg)
 
     @instruction
     def CLZ(cpu, dest, src):
-
+        """Count Leading Zeros"""
         # Check if the |pos| bit is 1, pos being the offset from the MSB
         value = src.read()
         msb = cpu.address_bit_size - 1
@@ -1020,10 +1117,12 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def NOP(cpu):
+        """No Op"""
         pass
 
     @instruction
     def REV(cpu, dest, op):
+        """Reverse byte order in a word."""
         opval = op.read()
         _bytes = list()
         for i in range(4):
@@ -1032,6 +1131,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def SXTH(cpu, dest, op):
+        """Sign extend Halfword"""
         _op = op.read()
         dest.write(Operators.SEXTEND(Operators.EXTRACT(_op, 0, 16), 16, 32))
 
@@ -1056,13 +1156,16 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def LDM(cpu, base, *regs):
+        """Load Multiple registers"""
         cpu._LDM(cs.arm.ARM_INS_LDM, base, regs)
 
     @instruction
     def LDMIB(cpu, base, *regs):
+        """Load Multiple registers Increment address Before each transfer"""
         cpu._LDM(cs.arm.ARM_INS_LDMIB, base, regs)
 
     def _STM(cpu, insn_id, base, regs):
+        """Implementation of STM instruction"""
         address = base.read()
         if insn_id == cs.arm.ARM_INS_STMIB:
             address += 4
@@ -1080,10 +1183,12 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def STM(cpu, base, *regs):
+        """Store Multiple registers"""
         cpu._STM(cs.arm.ARM_INS_STM, base, regs)
 
     @instruction
     def STMIB(cpu, base, *regs):
+        """Store Multiple registers Increment address Before each transfer"""
         cpu._STM(cs.arm.ARM_INS_STMIB, base, regs)
 
     def _bitwise_instruction(cpu, operation, dest, op1, *op2):
@@ -1099,6 +1204,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def ORR(cpu, dest, op1, op2=None):
+        """Logical OR"""
         if op2 is not None:
             cpu._bitwise_instruction(lambda x, y: x | y, dest, op1, op2)
         else:
@@ -1106,6 +1212,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def ORN(cpu, dest, op1, op2=None):
+        """Logical OR NOT"""
         if op2 is not None:
             cpu._bitwise_instruction(lambda x, y: x | ~y, dest, op1, op2)
         else:
@@ -1113,6 +1220,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def EOR(cpu, dest, op1, op2=None):
+        """Logical Exclusive OR"""
         if op2 is not None:
             cpu._bitwise_instruction(lambda x, y: x ^ y, dest, op1, op2)
         else:
@@ -1120,6 +1228,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def AND(cpu, dest, op1, op2=None):
+        """Logical AND"""
         if op2 is not None:
             cpu._bitwise_instruction(lambda x, y: x & y, dest, op1, op2)
         else:
@@ -1127,34 +1236,41 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def TEQ(cpu, *operands):
+        """Test Equivalence"""
         cpu._bitwise_instruction(lambda x, y: x ^ y, None, *operands)
         cpu.commit_flags()
 
     @instruction
     def TST(cpu, Rn, Rm):
+        """Test bits"""
         shifted, carry = Rm.read(with_carry=True)
         result = Rn.read() & shifted
         cpu.set_flags(N=HighBit(result), Z=(result == 0), C=carry)
 
     @instruction
     def SVC(cpu, op):
+        """SuperVisor Call"""
         if op.read() != 0:
             logger.warning("Bad SVC number: {:08}".format(op.read()))
         raise Interruption(0)
 
     @instruction
     def CMN(cpu, src, add):
+        """Compare Negative"""
         result, carry, overflow = cpu._ADD(src.read(), add.read())
         return result, carry, overflow
 
     def _SR(cpu, insn_id, dest, op, *rest):
         """
         Notes on Capstone behavior:
+
         - In ARM mode, _SR reg has `rest`, but _SR imm does not, its baked into `op`.
+
         - In ARM mode, `lsr r1, r2` will have a `rest[0]`
+
         - In Thumb mode, `lsr r1, r2` will have an empty `rest`
-        - In ARM mode, something like `lsr r1, 3` will not have `rest` and op will be
-            the immediate.
+
+        - In ARM mode, something like `lsr r1, 3` will not have `rest` and op will be the immediate.
         """
         assert insn_id in (cs.arm.ARM_INS_ASR, cs.arm.ARM_INS_LSL, cs.arm.ARM_INS_LSR)
 
@@ -1191,18 +1307,22 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def ASR(cpu, dest, op, *rest):
+        """Arithmetic Shift Right"""
         cpu._SR(cs.arm.ARM_INS_ASR, dest, op, *rest)
 
     @instruction
     def LSL(cpu, dest, op, *rest):
+        """Logical Shift Left"""
         cpu._SR(cs.arm.ARM_INS_LSL, dest, op, *rest)
 
     @instruction
     def LSR(cpu, dest, op, *rest):
+        """Logical Shift Right"""
         cpu._SR(cs.arm.ARM_INS_LSR, dest, op, *rest)
 
     @instruction
     def UMULL(cpu, rdlo, rdhi, rn, rm):
+        """Unsigned Long Multiply, with 32-bit operands, and 64-bit result"""
         result = UInt(rn.read(), cpu.address_bit_size * 2) * UInt(rm.read(), cpu.address_bit_size * 2)
         rdhi.write(Operators.EXTRACT(result, cpu.address_bit_size, cpu.address_bit_size))
         rdlo.write(GetNBits(result, cpu.address_bit_size))
@@ -1210,6 +1330,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def MUL(cpu, dest, src1, src2):
+        """Multiply with signed or unsigned 32-bit operands, giving the least significant 32 bits of the result"""
         width = cpu.address_bit_size
         op1 = SInt(src1.read(), width)
         op2 = SInt(src2.read(), width)
@@ -1219,10 +1340,12 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def MVN(cpu, dest, op):
+        """Move Not"""
         cpu._bitwise_instruction(lambda x: ~x, dest, op)
 
     @instruction
     def MLA(cpu, dest, op1, op2, addend):
+        """Multiply-Accumulate with signed or unsigned 32-bit operands, giving the least significant 32 bits of the result"""
         width = cpu.address_bit_size
         op1_val = SInt(op1.read(), width)
         op2_val = SInt(op2.read(), width)
@@ -1234,6 +1357,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def BIC(cpu, dest, op1, op2=None):
+        """Bit Clear"""
         if op2 is not None:
             result = (op1.read() & ~op2.read()) & Mask(cpu.address_bit_size)
         else:
@@ -1242,6 +1366,7 @@ class Armv7Cpu(Cpu):
         cpu.set_flags(N=HighBit(result), Z=(result == 0))
 
     def _VSTM(cpu, address, *regs):
+        """Inner Extension register store multiple implementation"""
         for reg in regs:
             cpu.write_int(address, reg.read(), reg.size)
             address += reg.size // 8
@@ -1250,12 +1375,14 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def VSTMIA(cpu, base, *regs):
+        """Extension register store multiple Increment address After each transfer"""
         updated_address = cpu._VSTM(base.read(), *regs)
         if cpu.instruction.writeback:
             base.writeback(updated_address)
 
     @instruction
     def VSTMDB(cpu, base, *regs):
+        """Extension register store multiple Decrement address Before each transfer"""
         address = base.read() - cpu.address_bit_size // 8 * len(regs)
         updated_address = cpu._VSTM(address, *regs)
         if cpu.instruction.writeback:
@@ -1263,10 +1390,12 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def VLDMIA(cpu, base, *regs):
+        """Extension register load  multiple Increment address Before each transfer"""
         cpu._LDM(cs.arm.ARM_INS_VLDMIA, base, regs)
 
     @instruction
     def STCL(cpu, *operands):
+        """STC(Store To Coprocessor) Long"""
         pass
 
     @instruction
@@ -1282,6 +1411,7 @@ class Armv7Cpu(Cpu):
 
     @instruction
     def UQSUB8(cpu, dest, op1, op2):
+        """Unsigned saturating parallel byte-wise subtraction"""
         src1 = op1.read()
         src2 = op2.read()
         result = []

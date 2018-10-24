@@ -730,39 +730,44 @@ class Linux(Platform):
 
     def setup_stack(self, argv, envp):
         '''
-        :param Cpu cpu: The cpu instance
+
         :param argv: list of parameters for the program to execute.
         :param envp: list of environment variables for the program to execute.
 
         http://www.phrack.org/issues.html?issue=58&id=5#article
-         position            content                     size (bytes) + comment
-         ----------------------------------------------------------------------
-         stack pointer ->  [ argc = number of args ]     4
-                         [ argv[0] (pointer) ]         4   (program name)
-                         [ argv[1] (pointer) ]         4
-                         [ argv[..] (pointer) ]        4 * x
-                         [ argv[n - 1] (pointer) ]     4
-                         [ argv[n] (pointer) ]         4   (= NULL)
 
-                         [ envp[0] (pointer) ]         4
-                         [ envp[1] (pointer) ]         4
-                         [ envp[..] (pointer) ]        4
-                         [ envp[term] (pointer) ]      4   (= NULL)
+        excerpt::
 
-                         [ auxv[0] (Elf32_auxv_t) ]    8
-                         [ auxv[1] (Elf32_auxv_t) ]    8
-                         [ auxv[..] (Elf32_auxv_t) ]   8
-                         [ auxv[term] (Elf32_auxv_t) ] 8   (= AT_NULL vector)
+            position            content                     size (bytes) + comment
+            ----------------------------------------------------------------------
+            stack pointer ->  [ argc = number of args ]     4
+                            [ argv[0] (pointer) ]         4   (program name)
+                            [ argv[1] (pointer) ]         4
+                            [ argv[..] (pointer) ]        4 * x
+                            [ argv[n - 1] (pointer) ]     4
+                            [ argv[n] (pointer) ]         4   (= NULL)
 
-                         [ padding ]                   0 - 16
+                            [ envp[0] (pointer) ]         4
+                            [ envp[1] (pointer) ]         4
+                            [ envp[..] (pointer) ]        4
+                            [ envp[term] (pointer) ]      4   (= NULL)
 
-                         [ argument ASCIIZ strings ]   >= 0
-                         [ environment ASCIIZ str. ]   >= 0
+                            [ auxv[0] (Elf32_auxv_t) ]    8
+                            [ auxv[1] (Elf32_auxv_t) ]    8
+                            [ auxv[..] (Elf32_auxv_t) ]   8
+                            [ auxv[term] (Elf32_auxv_t) ] 8   (= AT_NULL vector)
 
-         (0xbffffffc)      [ end marker ]                4   (= NULL)
+                            [ padding ]                   0 - 16
 
-         (0xc0000000)      < top of stack >              0   (virtual)
-         ----------------------------------------------------------------------
+                            [ argument ASCIIZ strings ]   >= 0
+                            [ environment ASCIIZ str. ]   >= 0
+
+            (0xbffffffc)      [ end marker ]                4   (= NULL)
+
+            (0xc0000000)      < top of stack >              0   (virtual)
+            ----------------------------------------------------------------------
+
+
         '''
         cpu = self.current
 
@@ -869,8 +874,11 @@ class Linux(Platform):
         :param filename: pathname of the file to be executed. (used for auxv)
         :param list env: A list of env variables. (used for extracting vars that control ld behavior)
         :raises error:
+
             - 'Not matching cpu': if the program is compiled for a different architecture
+
             - 'Not matching memory': if the program is compiled for a different address size
+
         :todo: define va_randomize and read_implies_exec personality
         '''
         # load elf See binfmt_elf.c
@@ -1278,17 +1286,17 @@ class Linux(Platform):
         return len(data)
 
     def sys_write(self, fd, buf, count):
-        ''' write - send bytes through a file descriptor
-          The write system call writes up to count bytes from the buffer pointed
-          to by buf to the file descriptor fd. If count is zero, write returns 0
-          and optionally sets *tx_bytes to zero.
+        ''' write \- send bytes through a file descriptor
+        The write system call writes up to count bytes from the buffer pointed
+        to by buf to the file descriptor fd. If count is zero, write returns 0
+        and optionally sets \*tx_bytes to zero.
 
-          :param fd            a valid file descriptor
-          :param buf           a memory buffer
-          :param count         number of bytes to send
-          :return: 0          Success
-                    EBADF      fd is not a valid file descriptor or is not open.
-                    EFAULT     buf or tx_bytes points to an invalid address.
+        :param fd            a valid file descriptor
+        :param buf           a memory buffer
+        :param count         number of bytes to send
+        :return: 0          Success
+        EBADF      fd is not a valid file descriptor or is not open.
+        EFAULT     buf or tx_bytes points to an invalid address.
         '''
         data: bytes = bytes()
         cpu = self.current
@@ -1338,8 +1346,11 @@ class Linux(Platform):
         :param buf: a buffer containing the pathname to the file to check its permissions.
         :param mode: the access permissions to check.
         :return:
+
             -  C{0} if the calling process can access the file in the desired mode.
+
             - C{-1} if the calling process can not access the file in the desired mode.
+
         '''
         filename = b''
         for i in range(0, 255):
@@ -1383,8 +1394,7 @@ class Linux(Platform):
         :rtype: int
         :param brk: the new address for C{brk}.
         :return: the value of the new C{brk}.
-        :raises error:
-                    - "Error in brk!" if there is any error allocating the memory
+        :raises error: "Error in brk!" if there is any error allocating the memory
         '''
         if brk != 0 and brk > self.elf_brk:
             mem = self.current.memory
@@ -1405,7 +1415,9 @@ class Linux(Platform):
         :param addr: the base address of the FS segment.
         :return: C{0} on success
         :raises error:
+
             - if C{code} is different to C{ARCH_SET_FS}
+
         '''
         ARCH_SET_GS = 0x1001
         ARCH_SET_FS = 0x1002
@@ -1652,7 +1664,7 @@ class Linux(Platform):
         :param path: the "link path id"
         :param buf: the buffer where the bytes will be putted.
         :param bufsize: the max size for read the link.
-        :todo: Out eax number of bytes actually sent | EAGAIN | EBADF | EFAULT | EINTR | errno.EINVAL | EIO | ENOSPC | EPIPE
+        :todo: Out eax number of bytes actually sent / EAGAIN / EBADF / EFAULT / EINTR / errno.EINVAL / EIO / ENOSPC / EPIPE
         '''
         if bufsize <= 0:
             return -errno.EINVAL
@@ -1672,20 +1684,18 @@ class Linux(Platform):
         '''
         Creates a new mapping in the virtual address space of the calling process.
         :rtype: int
-        :param address: the starting address for the new mapping. This address is used as hint unless the
-                        flag contains C{MAP_FIXED}.
+        :param address: the starting address for the new mapping. This address is used as hint unless the flag contains C{MAP_FIXED}.
         :param size: the length of the mapping.
         :param prot: the desired memory protection of the mapping.
-        :param flags: determines whether updates to the mapping are visible to other
-                      processes mapping the same region, and whether updates are carried
-                      through to the underlying file.
-        :param fd: the contents of a file mapping are initialized using C{size} bytes starting at
-                   offset C{offset} in the file referred to by the file descriptor C{fd}.
-        :param offset: the contents of a file mapping are initialized using C{size} bytes starting at
-                       offset C{offset}*0x1000 in the file referred to by the file descriptor C{fd}.
+        :param flags: determines whether updates to the mapping are visible to other processes mapping the same region, and whether updates are carried through to the underlying file.
+        :param fd: the contents of a file mapping are initialized using C{size} bytes starting at offset C{offset} in the file referred to by the file descriptor C{fd}.
+        :param offset: the contents of a file mapping are initialized using C{size} bytes starting at offset C{offset}*0x1000 in the file referred to by the file descriptor C{fd}.
         :return:
-            - C{-1} In case you use C{MAP_FIXED} in the flags and the mapping can not be place at the desired address.
-            - the address of the new mapping.
+
+        - C{-1} In case you use C{MAP_FIXED} in the flags and the mapping can not be place at the desired address.
+
+        - The address of the new mapping.
+
         '''
         return self.sys_mmap(address, size, prot, flags, fd, offset * 0x1000)
 
@@ -1706,8 +1716,11 @@ class Linux(Platform):
         :param offset: the contents of a file mapping are initialized using C{size} bytes starting at
                        offset C{offset} in the file referred to by the file descriptor C{fd}.
         :return:
+
                 - C{-1} in case you use C{MAP_FIXED} in the flags and the mapping can not be place at the desired address.
+
                 - the address of the new mapping (that must be the same as address in case you included C{MAP_FIXED} in flags).
+
         :todo: handle exception.
         '''
 
@@ -2186,9 +2199,8 @@ class Linux(Platform):
             self._current = procid
 
     def connections(self, fd):
-        """ File descriptors are connected to each other like pipes, except
-        for 0, 1, and 2. If you write to FD(N) for N >=3, then that comes
-		out from FD(N+1) and vice-versa
+        """
+        File descriptors are connected to each other like pipes, except for 0, 1, and 2. If you write to FD(N) for N >=3, then that comes out from FD(N+1) and vice-versa
         """
         if fd in [0, 1, 2]:
             return None
@@ -2455,7 +2467,7 @@ class SLinux(Linux):
     :param str disasm: disassembler to be used
     :param list argv: argv not including binary
     :param list envp: environment variables
-    :param tuple[str] symbolic_files: files to consider symbolic
+    :param list[str] symbolic_files: files to consider symbolic
     """
 
     def __init__(self, programs, argv=None, envp=None, symbolic_files=None,

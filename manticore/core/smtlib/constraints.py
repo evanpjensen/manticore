@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class ConstraintSet(object):
     ''' Constraint Sets
 
-        An object containing a set of constraints. Serves also as a factory for
-        new variables.
+    An object containing a set of constraints. Serves also as a factory for
+    new variables.
     '''
 
     def __init__(self):
@@ -117,6 +117,7 @@ class ConstraintSet(object):
         return related_variables, related_constraints
 
     def to_string(self, related_to=None, replace_constants=True):
+        ''' Returns a smtlib representation of the current state '''
         related_variables, related_constraints = self.__get_related(related_to)
 
         if replace_constants:
@@ -294,10 +295,18 @@ class ConstraintSet(object):
 
     def new_bool(self, name=None, taint=frozenset(), avoid_collisions=False):
         ''' Declares a free symbolic boolean in the constraint store
-            :param name: try to assign name to internal variable representation,
-                         if not unique, a numeric nonce will be appended
-            :param avoid_collisions: potentially avoid_collisions the variable to avoid name collisions if True
-            :return: a fresh BoolVariable
+
+        :param name: Assign name to internal variable representation. If left None the name "B" followed by a number will be used.
+        :type name: str Optional
+
+        :param taint:
+        :type taint: frozenset [Default=()]
+
+        :param avoid_collisions: If a non-unique name is chosen and avoid_collisions is set to False a ValueError exception will be thrown. Otherwise, if set to True, a unique name will be generated based on the non unique name provided.
+        :type avoid_collisions: bool [Default=False]
+
+        :return: a fresh :obj:`BoolVariable`
+
         '''
         if name is None:
             name = 'B'
@@ -310,12 +319,22 @@ class ConstraintSet(object):
         return self._declare(var)
 
     def new_bitvec(self, size, name=None, taint=frozenset(), avoid_collisions=False):
-        ''' Declares a free symbolic bitvector in the constraint store
-            :param size: size in bits for the bitvector
-            :param name: try to assign name to internal variable representation,
-                         if not unique, a numeric nonce will be appended
-            :param avoid_collisions: potentially avoid_collisions the variable to avoid name collisions if True
-            :return: a fresh BitVecVariable
+        '''Declares a free symbolic bitvector in the constraint store
+
+        :param size: size in bits for the bitvector
+        :type size: int
+
+        :param name: Assign name to internal variable representation. If left None the name "BV" followed by a number will be used.
+        :type name: str Optional
+
+        :param taint:
+        :type taint: frozenset [Default=()]
+
+        :param avoid_collisions: If a non-unique name is chosen and avoid_collisions is set to False a ValueError exception will be thrown. Otherwise, if set to True, a unique name will be generated based on the non unique name provided.
+        :type avoid_collisions: bool [Default=False]
+
+        :return: A fresh :obj:`BitVecVariable`
+
         '''
         if not (size == 1 or size % 8 == 0):
             raise Exception('Invalid bitvec size %s' % size)
@@ -331,13 +350,26 @@ class ConstraintSet(object):
 
     def new_array(self, index_bits=32, name=None, index_max=None, value_bits=8, taint=frozenset(), avoid_collisions=False):
         ''' Declares a free symbolic array of value_bits long bitvectors in the constraint store.
-            :param index_bits: size in bits for the array indexes one of [32, 64]
-            :param value_bits: size in bits for the array values
-            :param name: try to assign name to internal variable representation,
-                         if not unique, a numeric nonce will be appended
-            :param index_max: upper limit for indexes on this array (#FIXME)
-            :param avoid_collisions: potentially avoid_collisions the variable to avoid name collisions if True
-            :return: a fresh ArrayProxy
+
+        :param index_bits: size in bits for the array indexes one of [32, 64]
+        :type index_bits: int [Default=32]
+
+        :param name: Assign name to internal variable representation. If left None the name "A" followed by a number will be used.
+        :type name: str Optional
+
+        :param index_max: upper limit for indexes on this array (#FIXME)
+        :type index_max: int Optional
+
+        :param value_bits: size in bits for the array values
+        :type value_bits: int [Default=8]
+
+        :param taint:
+        :type taint: frozenset [Default=()]
+
+        :param avoid_collisions: If a non-unique name is chosen and avoid_collisions is set to False a ValueError exception will be thrown. Otherwise, if set to True, a unique name will be generated based on the non unique name provided.
+        :type avoid_collisions: bool [Default=False]
+
+        :return: a fresh :obj:`ArrayProxy`
         '''
         if name is None:
             name = 'A'

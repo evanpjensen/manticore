@@ -348,17 +348,16 @@ def concretized_args(**policies):
     Make sure an EVM instruction has all of its arguments concretized according to
     provided policies.
 
-    Example decoration:
+    Example decoration::
 
         @concretized_args(size='ONE', address='')
         def LOG(self, address, size, *topics):
             ...
 
-    The above will make sure that the |size| parameter to LOG is Concretized when symbolic
-    according to the 'ONE' policy and concretize |address| with the default policy.
+    The above will make sure that the `size` parameter to LOG is Concretized when symbolic
+    according to the 'ONE' policy and concretize `address` with the default policy.
 
-    :param policies: A kwargs list of argument names and their respective policies.
-                         Provide None or '' as policy to use default.
+    :param policies: A kwargs list of argument names and their respective policies. Provide None or '' as policy to use default.
     :return: A function decorator
     """
     def concretizer(func):
@@ -2285,7 +2284,7 @@ class EVMWorld(Platform):
         #Transaction to normal account
         if sort in ('CALL', 'DELEGATECALL', 'CALLCODE') and not self.get_code(address):
             self._close_transaction('STOP')
-            
+
     def dump(self, stream, state, mevm, message):
         from ..ethereum import flagged, calculate_coverage
         blockchain = state.platform
@@ -2369,4 +2368,3 @@ class EVMWorld(Platform):
                 stream.write("Coverage %d%% (on this state)\n" % calculate_coverage(runtime_code, runtime_trace))  # coverage % for address in this account/state
             stream.write("\n")
         return is_something_symbolic
-

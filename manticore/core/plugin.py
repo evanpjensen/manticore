@@ -246,6 +246,8 @@ class Visited(Plugin):
 
 
 class ConcreteTraceFollower(Plugin):
+    """
+    """
     def __init__(self, source=None):
         '''
         :param iterable source: Iterator producing instruction pointers to be followed
@@ -278,67 +280,298 @@ class ConcreteTraceFollower(Plugin):
 # TODO document all callbacks
 class ExamplePlugin(Plugin):
     def will_open_transaction_callback(self, state, tx):
+        """ Invoked before creating transaction
+
+        :param state: State of program before creating transaction
+        :type state: :obj:`State`
+        :param tx:
+        :type tx:
+
+        """
         logger.info('will open a transaction %r %r', state, tx)
 
     def will_close_transaction_callback(self, state, tx):
         logger.info('will close a transaction %r %r', state, tx)
 
     def will_decode_instruction_callback(self, state, pc):
+        """ Invoked before decoding instruction.
+        At this point it's possible to have PC pointing at code that will crash the machine.
+        Event generated in :obj:`Cpu`
+        :param state: State of program before creating transaction
+        :type state: :obj:`State`
+        :param pc: Program counter. The address to be decoded.
+        :type pc: int
+
+
+        """
         logger.info('will_decode_instruction %r %r', state, pc)
 
     def will_execute_instruction_callback(self, state, pc, instruction):
+        """ Invoked before executing instruction
+        Invoked almost immediatly after instruction decoding.
+        Event generated in :obj:`Cpu`
+        :param state: State of program before creating transaction
+        :type state: :obj:`State`
+        :param pc: Program counter. The address to be executed.
+        :type pc: int
+        :param instruction: Instruction to execute
+        :type instruction:
+
+        """
         logger.info('will_execute_instruction %r %r %r', state, pc, instruction)
 
     def did_execute_instruction_callback(self, state, pc, target_pc, instruction):
+        """ Invoked after executing instruction
+        Event generated in :obj:`Cpu`
+        :param state: State of program before creating transaction
+        :type state: :obj:`State`
+        :param pc: Program counter. The address most recently executed.
+        :type pc: int
+        :param target_pc: The soon to be value of PC. May differ from the next address in the event of branching.
+        :type target_pc: int
+        :param instruction: Instruction most recently executed
+        :type instruction:
+        """
         logger.info('did_execute_instruction %r %r %r %r', state, pc, target_pc, instruction)
 
     def will_start_run_callback(self, state):
         ''' Called once at the beginning of the run.
             state is the initial root state
+            Event generated in :obj:`Manticore`
         '''
         logger.info('will_start_run')
 
     def did_finish_run_callback(self):
+        """Called when the run is finished
+        Event generated in :obj:`Manticore`
+        """
         logger.info('did_finish_run')
 
     def will_fork_state_callback(self, parent_state, expression, solutions, policy):
+        """ Invoked before forking state
+        Event generated in :obj:`Executor`
+
+        :param parent_state: Program state of parent
+        :type parent_state: :obj:`State`
+
+        :param expression:
+        :type expression:
+
+        :param solutions:
+        :type solutions:
+
+        :param policy:
+        :type policy:
+
+        """
+
         logger.info('will_fork_state %r %r %r %r', parent_state, expression, solutions, policy)
 
     def did_fork_state_callback(self, child_state, expression, new_value, policy):
+        """ Invoked after forking state
+        Event generated in :obj:`Executor`
+
+        :param child_state: Program state of child
+        :type child_state: :obj:`State`
+
+        :param expression:
+        :type expression:
+
+        :param new_value:
+        :type new_value:
+
+        :param policy:
+        :type policy:
+
+        """
+
         logger.info('did_fork_state %r %r %r %r', child_state, expression, new_value, policy)
 
     def did_load_state_callback(self, state, state_id):
+        """ Invoked after lading state
+        Event generated in :obj:`Executor`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param state_id: Unique identifier corresponding to the state
+        :type state_id: int
+        """
         logger.info('did_load_state %r %r', state, state_id)
 
     def did_enqueue_state_callback(self, state, state_id):
+        """ Invoked after enqueueing of state
+        Event generated in :obj:`Executor`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param state_id: Unique identifier corresponding to the state
+        :type state_id: int
+
+        """
         logger.info('did_enqueue_state %r %r', state, state_id)
 
     def will_terminate_state_callback(self, state, state_id, exception):
+        """ Invoked before terminating state
+        Event generated in :obj:`Executor`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param state_id: Unique identifier corresponding to the state
+        :type state_id: int
+
+        :param exception:
+        :type exception:
+
+        """
+
         logger.info('will_terminate_state %r %r %r', state, state_id, exception)
 
     def will_generate_testcase_callback(self, state, testcase_id, message):
+        """ Invoked after generating testcase
+        Event generated in :obj:`Executor`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param testcase_id: Name of the test case
+        :type testcase_id: str
+
+        :param message: Message describing the testcase
+        :type message: str optional
+
+        """
         logger.info('will_generate_testcase %r %r %r', state, testcase_id, message)
 
     def will_read_memory_callback(self, state, where, size):
+        """ Invoked before the machine reads memory
+        Invoked before the indicated memory is read. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param where: Address from which to read
+        :type where: :obj:`Expression`
+
+        :param size: Ammount of memory to read
+        :type size: obj:`Expression`
+
+        """
         logger.info('will_read_memory %r %r %r', state, where, size)
 
     def did_read_memory_callback(self, state, where, value, size):
+        """ Invoked after the machine reads memory
+        Invoked after the memory at `where` has been read. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param where: Address from which to read
+        :type where: :obj:`Expression`
+
+        :param value: The result of the read
+        :type value: :obj:`Expression`
+
+        :param size: Ammount of memory to read
+        :type size: obj:`Expression`
+
+        """
+
         logger.info('did_read_memory %r %r %r %r', state, where, value, size)
 
     def will_write_memory_callback(self, state, where, value, size):
+        """ Invoked before the machine writes to memory
+        Invoked before the indicated memory is written. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param where: Address to be written
+        :type where: :obj:`Expression`
+
+        :param value: The value to write
+        :type value: :obj:`Expression`
+
+        :param size: The size of the value to write
+        :type size: obj:`Expression`
+        """
         logger.info('will_write_memory %r %r %r', state, where, value, size)
 
     def did_write_memory_callback(self, state, where, value, size):
+        """ Invoked after the machine writes to memory
+        Invoked after the indicated memory is written. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param where: Address that was written
+        :type where: :obj:`Expression`
+
+        :param value: The value that was written
+        :type value: :obj:`Expression`
+
+        :param size: The size of the value that was written
+        :type size: obj:`Expression`
+        """
         logger.info('did_write_memory %r %r %r %r', state, where, value, size)
 
     def will_read_register_callback(self, state, register):
+        """ Invoked before the machine reads a register
+        Invoked before the indicated register is read. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param register: Register to be read
+        :type register: str
+
+        """
         logger.info('will_read_register %r %r', state, register)
 
     def did_read_register_callback(self, state, register, value):
+        """ Invoked after the machine reads a register
+        Invoked after the indicated register is read. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param register: Register to be read
+        :type register: str
+
+        :param value: value read from register
+        :type value: :obj:`Expression`
+
+        """
         logger.info('did_read_register %r %r %r', state, register, value)
 
     def will_write_register_callback(self, state, register, value):
+        """ Invoked before the machine writes to a register
+        Invoked before `value` is written to `register`. Event generated in :obj:`Cpu`
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param register: Register to be written
+        :type register: str
+
+        :param value: Value about to be written to register
+        :type value: :obj:`Expression`
+        """
         logger.info('will_write_register %r %r %r', state, register, value)
 
     def did_write_register_callback(self, state, register, value):
+        """ Invoked after the machine writes to a register
+        Invoked after `value` is written to `register`. Event generated in :obj:`Cpu`
+
+        :param state: Program state
+        :type state: :obj:`State`
+
+        :param register: Register that was written
+        :type register: str
+
+        :param value: Value that was written
+        :type value: :obj:`Expression`
+
+        """
         logger.info('did_write_register %r %r %r', state, register, value)

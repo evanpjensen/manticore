@@ -67,14 +67,10 @@ def strcmp(state, s1, s2):
     bytes at current offset is symbolic.
 
     Points of Interest:
-    - We've been building up a symbolic tree but then encounter two
-      concrete bytes that differ. We can throw away the entire symbolic
-      tree!
-    - If we've been encountering concrete bytes that match
-      at the end of the string as we walk forward, and then we encounter
-      a pair where one is symbolic, we can forget about that 0 `ret` we've
-      been tracking and just replace it with the symbolic subtraction of
-      the two
+
+    - We've been building up a symbolic tree but then encounter two concrete bytes that differ. We can throw away the entire symbolic tree!
+
+    - If we've been encountering concrete bytes that match at the end of the string as we walk forward, and then we encounter a pair where one is symbolic, we can forget about that 0 `ret` we've been tracking and just replace it with the symbolic subtraction of the two
 
     :param State state: Current program state
     :param int s1: Address of string 1

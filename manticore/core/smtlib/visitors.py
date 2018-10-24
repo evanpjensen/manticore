@@ -9,24 +9,25 @@ logger = logging.getLogger(__name__)
 class Visitor(object):
     ''' Class/Type Visitor
 
-       Inherit your class visitor from this one and get called on a different
-       visiting function for each type of expression. It will call the first
-       implemented method for the __mro__ class order.
-        For example for a BitVecAdd it will try
+        Inherit your visitor from this and get called on a different
+        visiting function for each type of expression. It will call the first
+        implemented method for the __mro__ class order.
+        For example for a BitVecAdd it will try::
+
             visit_BitVecAdd()          if not defined then it will try with
             visit_BitVecOperation()    if not defined then it will try with
             visit_BitVec()             if not defined then it will try with
             visit_Operation()          if not defined then it will try with
             visit_Expression()
 
-        Other class named visitors are:
+        Other class named visitors are::
 
-        visit_Constant()
-        visit_Variable()
-        visit_Operation()
-        visit_BitVec()
-        visit_Bool()
-        visit_Array()
+            visit_Constant()
+            visit_Variable()
+            visit_Operation()
+            visit_BitVec()
+            visit_Bool()
+            visit_Array()
 
     '''
 
@@ -160,7 +161,7 @@ class GetDeclarations(Visitor):
 
 
 class GetDepth(Translator):
-    ''' Simple visitor to collect all variables in an expression or set of
+    ''' Simple visitor to count the variables in an expression or set of
         expressions
     '''
 
@@ -175,12 +176,25 @@ class GetDepth(Translator):
 
 
 def get_depth(exp):
+    """
+    Calculate the depth of the expression tree
+
+    :param exp: root expression
+    :type exp: :obj:`Expression`
+    :rtype: int
+
+    """
     visitor = GetDepth()
     visitor.visit(exp)
     return visitor.result
 
 
 class PrettyPrinter(Visitor):
+    """ Pretty Printer
+
+    Generates a string representation of an :obj:`Expression`
+
+    """
     def __init__(self, depth=None, **kwargs):
         super().__init__(**kwargs)
         self.output = ''
@@ -194,7 +208,9 @@ class PrettyPrinter(Visitor):
     def visit(self, expression):
         '''
         Overload Visitor.visit because:
+
         - We need a pre-order traversal
+
         - We use a recursion as it makes it easier to keep track of the indentation
 
         '''
@@ -251,6 +267,16 @@ class PrettyPrinter(Visitor):
 
 
 def pretty_print(expression, **kwargs):
+    """ Expression pretty printer
+
+    :param expression: Expression to print
+    :type expression: :obj:`Expression`
+
+    :param kwargs: Named arguments for :obj:`PrettyPrinter`
+
+    :rtype: str
+
+    """
     if not isinstance(expression, Expression):
         return str(expression)
     pp = PrettyPrinter(**kwargs)
@@ -259,6 +285,11 @@ def pretty_print(expression, **kwargs):
 
 
 class ConstantFolderSimplifier(Visitor):
+    """ Fold constants where possible
+
+    This visitor optimizes simple expressions composed exclusively of constants by performing the relevant operation on those constants.
+
+    """
     def __init__(self, **kw):
         super().__init__(**kw)
 
@@ -349,6 +380,11 @@ def constant_folder(expression):
 
 
 class ArithmeticSimplifier(Visitor):
+    """ Simplify complex expressions
+
+    Simplify expressions where possible. Is a superset of :obj:`ConstantFolderSimplifier`. Can simplify expressions where not all operands are constant. Can also simplify ITE and array access expressions.
+
+    """
     def __init__(self, parent=None, **kw):
         super().__init__(**kw)
 
@@ -548,6 +584,14 @@ def arithmetic_simplify(expression):
 
 
 def to_constant(expression):
+    """Simplify expression to constant if possible
+
+    :param expression: Expression to simplify
+    :type expression: :obj:`Expression`
+
+    :rtype:
+
+    """
     value = arithmetic_simplify(expression)
     if isinstance(value, Constant):
         return value.value
@@ -688,6 +732,13 @@ class TranslatorSmtlib(Translator):
 
 
 def translate_to_smtlib(expression, **kwargs):
+    """ Translate expression to smtlib
+
+    :param expression: expression to translate to smtlib
+    :type expression: :obj:`Expression`
+
+    :rtype: str
+    """
     translator = TranslatorSmtlib(**kwargs)
     translator.visit(expression)
     return translator.result
@@ -709,6 +760,17 @@ class Replace(Visitor):
 
 
 def replace(expression, bindings):
+    """Replace expressions
+
+    Replace elements in expression with values from bindings
+
+    :param expression: Expression to replace elements in
+    :type expression: :obj:`Expression`
+
+    :param bindings: A dict mapping expressions to replacments
+    :type bindings: dict[:obj:`Expression`, :obj:`Expression`]
+
+    """
     if not bindings:
         return expression
     visitor = Replace(bindings)
@@ -722,6 +784,14 @@ def replace(expression, bindings):
 
 
 def get_variables(expression):
+    """ Get all variables in expression
+
+    :param expression: Expression from which to extract variables
+    :type expression: :obj:`Expression`
+
+    :rtype: set[:obj:`Expression`]
+    """
+
     visitor = GetDeclarations()
     visitor.visit(expression)
     return visitor.result
